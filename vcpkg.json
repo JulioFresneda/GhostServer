@@ -1,0 +1,7 @@
+{
+  "dependencies": [
+    "sqlite3",
+    "crow",
+    "nlohmann-json"
+  ]
+}

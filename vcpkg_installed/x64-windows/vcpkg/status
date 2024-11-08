@@ -1,0 +1,50 @@
+Package: vcpkg-cmake-config
+Version: 2024-05-23
+Architecture: x64-windows
+Multi-Arch: same
+Abi: 30296d0d501f994e5dc31310ff77afdffe42616ac8103e040a521ce47d03af7d
+Status: install ok installed
+
+Package: vcpkg-cmake
+Version: 2024-04-18
+Architecture: x64-windows
+Multi-Arch: same
+Abi: 23f43807424e3e46bd63379e7992e670019f40263fda558cfdf8090b21a7ee58
+Status: install ok installed
+
+Package: sqlite3
+Version: 3.46.0
+Port-Version: 1
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-windows
+Multi-Arch: same
+Abi: 5b89e0a69dd77efd5acf8aa1a679249919c50ab29d15afcb904de557647e78a8
+Description: SQLite is a software library that implements a self-contained, serverless, zero-configuration, transactional SQL database engine.
+Default-Features: json1
+Status: install ok installed
+
+Package: sqlite3
+Feature: json1
+Architecture: x64-windows
+Multi-Arch: same
+Description: Enable JSON functionality for sqlite3
+Status: install ok installed
+
+Package: asio
+Version: 1.30.2
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-windows
+Multi-Arch: same
+Abi: 56feeb5d6dec3312298760a4b344576da1b19f4a892e7e7e269a32e45b56c3ad
+Description: Asio is a cross-platform C++ library for network and low-level I/O programming that provides developers with a consistent asynchronous model using a modern C++ approach.
+Status: install ok installed
+
+Package: crow
+Version: 1.2.0
+Depends: asio, vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-windows
+Multi-Arch: same
+Abi: a853f0e287281cd4e11c110e2a8db94b3bbc318eccbed099ddf6ab9d56f0c26c
+Description: Very fast and easy to use C++ micro web framework
+Status: install ok installed
+
