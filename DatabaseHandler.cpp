@@ -4,6 +4,9 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
+#include <filesystem>
+namespace fs = std::filesystem;
+
 
 DatabaseHandler::DatabaseHandler(const std::string& dbPath) {
     try {
@@ -360,3 +363,43 @@ void DatabaseHandler::generateUserMetadataJson(const std::string& userID, const 
     file.close();
 }
 
+
+
+std::string DatabaseHandler::getImagePathById(const std::string& id, const std::string& coversPath) {
+    try {
+        // Check if the ID exists in the Collection table
+        CppSQLite3Statement stmtCollection = db.compileStatement("SELECT image_path FROM Collection WHERE ID = ?;");
+        stmtCollection.bind(1, id.c_str());
+        CppSQLite3Query queryCollection = stmtCollection.execQuery();
+
+        fs::path coversFolder = coversPath;
+
+
+        if (!queryCollection.eof()) {
+            // If found in Collection, return the full path
+            fs::path imagePath = queryCollection.getStringField("image_path");
+            fs::path fullPath = coversFolder / imagePath;
+            std::string fullPathStr = fullPath.string();
+            return fullPathStr;
+        }
+
+        // If not found in Collection, check the Media table
+        CppSQLite3Statement stmtMedia = db.compileStatement("SELECT image_path FROM Media WHERE ID = ?;");
+        stmtMedia.bind(1, id.c_str());
+        CppSQLite3Query queryMedia = stmtMedia.execQuery();
+
+        if (!queryMedia.eof()) {
+            // If found in Media, return the full path
+            fs::path imagePath = queryCollection.getStringField("image_path");
+            fs::path fullPath = coversFolder / imagePath;
+            std::string fullPathStr = fullPath.string();
+            return fullPathStr;
+        }
+    }
+    catch (const CppSQLite3Exception& e) {
+        std::cerr << "Database error: " << e.errorMessage() << std::endl;
+    }
+
+    // Return an empty string if no match is found
+    return "";
+}

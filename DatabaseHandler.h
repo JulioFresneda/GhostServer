@@ -30,6 +30,8 @@ public:
     void generateMediaDataJson();
     void generateUserMetadataJson(const std::string& userID, const std::string& profileID);
 
+    std::string getImagePathById(const std::string& id, const std::string& coversPath);
+
 private:
     CppSQLite3DB db;
 };

@@ -6,16 +6,15 @@
 #include <sstream>
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
+#include <filesystem>
+namespace fs = std::filesystem;     
 
 
-
-API::API(DatabaseHandler& dbHandler) : db(dbHandler) {
-    // Load tokens into memory on startup
+API::API(DatabaseHandler& dbHandler, const std::string& coversPath)
+    : db(dbHandler), coversPath(coversPath) {
     loadTokens();
-
-    //db.generateMediaDataJson();
-    //db.generateUserMetadataJson("Julio", "test");
 }
+
 
 void API::loadTokens() {
     std::vector<std::pair<std::string, std::string>> users = db.getAllUserTokens();
@@ -26,6 +25,11 @@ void API::loadTokens() {
 
 void API::run(int port) {
     crow::SimpleApp app;
+
+    CROW_ROUTE(app, "/cover/<string>").methods(crow::HTTPMethod::POST)
+        ([this](const crow::request& req, const std::string& id) {
+        return getCoverImage(req, id);
+            });
 
     CROW_ROUTE(app, "/media/data").methods(crow::HTTPMethod::GET)([this](const crow::request& req) {
         return getMediaData(req);
@@ -255,5 +259,53 @@ crow::response API::listProfiles(const crow::request& req) {
 bool API::checkToken(const std::string& token, const std::string& userID) {
     auto it = tokens.find(userID);
     return (it != tokens.end() && it->second == token);
+}
+
+
+crow::response API::getCoverImage(const crow::request& req, const std::string& id) {
+    // Parse JSON body to get token and userID
+    auto bodyJson = json::parse(req.body, nullptr, false);
+    if (bodyJson.is_discarded()) {
+        return crow::response(400, "Invalid JSON in request body");
+    }
+
+    // Check if both token and userID are provided in the body
+    if (!bodyJson.contains("token") || !bodyJson.contains("userID")) {
+        return crow::response(400, "Missing token or userID in request body");
+    }
+
+    std::string token = bodyJson["token"].get<std::string>();
+    std::string userID = bodyJson["userID"].get<std::string>();
+
+    // Check if the provided token is valid for the given userID
+    if (!checkToken(token, userID)) {
+        // If the token is invalid, return a 401 Unauthorized response
+        return crow::response(401, "Unauthorized access - invalid token");
+    }
+
+    // Retrieve the full path to the image using DatabaseHandler
+    std::string fullPath = db.getImagePathById(id, coversPath);
+
+    if (fullPath.empty()) {
+        // If no image path is found, return a 404 error
+        return crow::response(404, "Cover image not found");
+    }
+
+    // Open the image file in binary mode
+    std::ifstream imageFile(fullPath, std::ios::binary);
+    if (!imageFile.is_open()) {
+        // Return 404 if the image file is missing on the server
+        return crow::response(404, "Image file not found on server");
+    }
+
+    // Read the image content
+    std::stringstream buffer;
+    buffer << imageFile.rdbuf();
+    imageFile.close();
+
+    // Create the response with appropriate content type
+    crow::response res(buffer.str());
+    res.add_header("Content-Type", "image/jpeg");  // Adjust if images may be of a different format
+    return res;
 }
 
