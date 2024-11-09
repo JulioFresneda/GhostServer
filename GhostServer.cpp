@@ -41,6 +41,23 @@ std::string loadCoversPath(const std::string& configFilePath) {
     }
 }
 
+std::string loadChunksPath(const std::string& configFilePath) {
+    std::ifstream configFile(configFilePath);
+    if (!configFile.is_open()) {
+        throw std::runtime_error("Could not open configuration file: " + configFilePath);
+    }
+
+    json configJson;
+    configFile >> configJson; // Read JSON file into configJson object
+
+    if (configJson.contains("chunksPath") && configJson["chunksPath"].is_string()) {
+        return configJson["chunksPath"].get<std::string>();
+    }
+    else {
+        throw std::runtime_error("Invalid configuration: 'coversPath' not found or incorrect type.");
+    }
+}
+
 int main() {
     try {
         // Specify the path to your configuration JSON file
@@ -58,7 +75,9 @@ int main() {
 
         // Initialize the API with the database handler
         std::string coversPath = loadCoversPath(configFilePath);
-        API api(dbHandler, coversPath);
+        std::string chunksPath = loadChunksPath(configFilePath);
+
+        API api(dbHandler, coversPath, chunksPath);
 
         // Run the API server on a specified port
         api.run(18080);

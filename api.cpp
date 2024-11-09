@@ -10,8 +10,8 @@ using json = nlohmann::json;
 namespace fs = std::filesystem;     
 
 
-API::API(DatabaseHandler& dbHandler, const std::string& coversPath)
-    : db(dbHandler), coversPath(coversPath) {
+API::API(DatabaseHandler& dbHandler, const std::string& coversPath, const std::string& chunksPath)
+    : db(dbHandler), coversPath(coversPath), chunksPath(chunksPath) {
     loadTokens();
 }
 
@@ -25,6 +25,18 @@ void API::loadTokens() {
 
 void API::run(int port) {
     crow::SimpleApp app;
+
+    CROW_ROUTE(app, "/media/<string>/manifest").methods(crow::HTTPMethod::POST)
+        ([this](const crow::request& req, const std::string& media_id) {
+        return handleManifestRequest(req, media_id);
+            });
+
+    CROW_ROUTE(app, "/media/<string>/chunk/<string>").methods(crow::HTTPMethod::POST)
+        ([this](const crow::request& req, const std::string& media_id, const std::string& chunk_name) {
+        return handleChunkRequest(req, media_id, chunk_name);
+            });
+
+
 
     CROW_ROUTE(app, "/cover/<string>").methods(crow::HTTPMethod::POST)
         ([this](const crow::request& req, const std::string& id) {
@@ -104,6 +116,68 @@ void API::run(int port) {
 }
 
 
+crow::response API::handleManifestRequest(const crow::request& req, const std::string& media_id) {
+    auto x = crow::json::load(req.body);
+    if (!x) {
+        return crow::response(400, "Invalid JSON");
+    }
+
+    std::string userID = x["userID"].s();
+    std::string token = x["token"].s();
+
+    crow::json::wvalue response;
+
+
+    if (!checkToken(token, userID)) {
+        response["status"] = "error";
+        response["message"] = "Incorrect token.";
+        return crow::response(401, response);
+    }
+
+    std::filesystem::path mpdPath = std::filesystem::path(chunksPath) / media_id / (media_id + ".mpd");
+    return serveFile(mpdPath.string());
+}
+
+// Handler for serving media chunks
+crow::response API::handleChunkRequest(const crow::request& req, const std::string& media_id, const std::string& chunk_name) {
+    auto x = crow::json::load(req.body);
+    if (!x) {
+        return crow::response(400, "Invalid JSON");
+    }
+
+    std::string userID = x["userID"].s();
+    std::string token = x["token"].s();
+
+    crow::json::wvalue response;
+
+
+    if (!checkToken(token, userID)) {
+        response["status"] = "error";
+        response["message"] = "Incorrect token.";
+        return crow::response(401, response);
+    }
+
+    std::filesystem::path chunkPath = std::filesystem::path(chunksPath) / media_id / (chunk_name + ".m4s");
+    return serveFile(chunkPath.string());
+}
+
+
+crow::response API::serveFile(const std::string& path) {
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) {
+        return crow::response(404, "File not found.");
+    }
+
+    auto size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    std::string fileContent(size, '\0');
+    file.read(&fileContent[0], size);
+
+    crow::response res;
+    res.body = std::move(fileContent);
+    res.set_header("Content-Type", "application/octet-stream");
+    return res;
+}
 
 
 crow::response API::getMediaData(const crow::request& req) {

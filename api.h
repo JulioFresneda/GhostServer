@@ -7,12 +7,18 @@
 
 class API {
 public:
-    API(DatabaseHandler& dbHandler, const std::string& coversPath);
+    API(DatabaseHandler& dbHandler, const std::string& coversPath, const std::string& chunksPath);
     void run(int port);
 
 private:
     DatabaseHandler& db;
     const std::string& coversPath;
+    const std::string chunksPath;
+
+    crow::response handleManifestRequest(const crow::request& req, const std::string& media_id);
+    crow::response handleChunkRequest(const crow::request& req, const std::string& media_id, const std::string& chunk_name);
+
+    crow::response serveFile(const std::string& path);
 
     crow::response getMediaData(const crow::request& req);
     crow::response getUserMetadata(const crow::request& req);
