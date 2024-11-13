@@ -294,8 +294,10 @@ void DatabaseHandler::generateMediaDataJson() {
     std::vector<std::string> collectionColumns = getColumnNames("Collection");
     std::vector<std::string> mediaColumns = getColumnNames("Media");
 
-    // Fetch all collections
+    // First get all collections
     CppSQLite3Query collectionQuery = db.execQuery("SELECT * FROM Collection;");
+    json collectionsArray = json::array();
+
     while (!collectionQuery.eof()) {
         json collectionJson;
 
@@ -304,34 +306,38 @@ void DatabaseHandler::generateMediaDataJson() {
             collectionJson[col] = collectionQuery.getStringField(col.c_str());
         }
 
-        // Fetch media items associated with this collection
-        CppSQLite3Statement mediaStmt = db.compileStatement("SELECT * FROM Media WHERE collection_id = ?;");
-        mediaStmt.bind(1, collectionQuery.getStringField("ID"));
-        CppSQLite3Query mediaQuery = mediaStmt.execQuery();
-
-        // Add media items to collection JSON
-        json mediaArray = json::array();
-        while (!mediaQuery.eof()) {
-            json mediaJson;
-
-            // Populate JSON for media row dynamically
-            for (const auto& col : mediaColumns) {
-                mediaJson[col] = mediaQuery.getStringField(col.c_str());
-            }
-
-            mediaArray.push_back(mediaJson);
-            mediaQuery.nextRow();
-        }
-        collectionJson["medias"] = mediaArray;
-        mediaDataJson["collections"].push_back(collectionJson);
+        collectionsArray.push_back(collectionJson);
         collectionQuery.nextRow();
     }
+
+    // Add collections array to main JSON
+    mediaDataJson["collections"] = collectionsArray;
+
+    // Now get ALL media items
+    CppSQLite3Query mediaQuery = db.execQuery("SELECT * FROM Media;");
+    json mediaArray = json::array();
+
+    while (!mediaQuery.eof()) {
+        json mediaJson;
+
+        // Populate JSON for media row dynamically
+        for (const auto& col : mediaColumns) {
+            mediaJson[col] = mediaQuery.getStringField(col.c_str());
+        }
+
+        mediaArray.push_back(mediaJson);
+        mediaQuery.nextRow();
+    }
+
+    // Add media array to main JSON
+    mediaDataJson["media"] = mediaArray;
 
     // Write the generated JSON to file
     std::ofstream file("media_data.json");
     file << mediaDataJson.dump(4);  // pretty-print with 4-space indentation
     file.close();
 }
+
 
 void DatabaseHandler::generateUserMetadataJson(const std::string& userID, const std::string& profileID) {
     json userMetadataJson;
@@ -367,31 +373,32 @@ void DatabaseHandler::generateUserMetadataJson(const std::string& userID, const 
 
 std::string DatabaseHandler::getImagePathById(const std::string& id, const std::string& coversPath) {
     try {
+        fs::path coversFolder = coversPath;
+
         // Check if the ID exists in the Collection table
-        CppSQLite3Statement stmtCollection = db.compileStatement("SELECT image_path FROM Collection WHERE ID = ?;");
+        CppSQLite3Statement stmtCollection = db.compileStatement("SELECT ID FROM Collection WHERE ID = ?;");
         stmtCollection.bind(1, id.c_str());
         CppSQLite3Query queryCollection = stmtCollection.execQuery();
 
-        fs::path coversFolder = coversPath;
-
-
         if (!queryCollection.eof()) {
             // If found in Collection, return the full path
-            fs::path imagePath = queryCollection.getStringField("image_path");
+            fs::path imagePath = queryCollection.getStringField("ID");
+            imagePath += ".png";
             fs::path fullPath = coversFolder / imagePath;
             std::string fullPathStr = fullPath.string();
             return fullPathStr;
         }
 
         // If not found in Collection, check the Media table
-        CppSQLite3Statement stmtMedia = db.compileStatement("SELECT image_path FROM Media WHERE ID = ?;");
+        CppSQLite3Statement stmtMedia = db.compileStatement("SELECT ID FROM Media WHERE ID = ?;");
         stmtMedia.bind(1, id.c_str());
         CppSQLite3Query queryMedia = stmtMedia.execQuery();
 
         if (!queryMedia.eof()) {
-            // If found in Media, return the full path
-            fs::path imagePath = queryCollection.getStringField("image_path");
-            fs::path fullPath = coversFolder / imagePath;
+            // FIXED: Using queryMedia instead of queryCollection
+            fs::path imagePath = queryMedia.getStringField("ID");
+            imagePath += ".png";
+            fs::path fullPath = coversFolder / imagePath ;
             std::string fullPathStr = fullPath.string();
             return fullPathStr;
         }

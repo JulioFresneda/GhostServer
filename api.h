@@ -34,6 +34,9 @@ private:
     bool checkToken(const std::string& tokenProvided, const std::string& userID);
     void loadTokens();
 
+    bool validateRequest(const crow::request& req, std::string& userID, std::string& token);
+
+
 
 };
 

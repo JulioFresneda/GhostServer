@@ -7,6 +7,7 @@
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
 #include <filesystem>
+#include <regex>
 namespace fs = std::filesystem;     
 
 
@@ -26,12 +27,14 @@ void API::loadTokens() {
 void API::run(int port) {
     crow::SimpleApp app;
 
-    CROW_ROUTE(app, "/media/<string>/manifest").methods(crow::HTTPMethod::POST)
+    CROW_ROUTE(app, "/media/<string>/manifest")
+        .methods(crow::HTTPMethod::GET, crow::HTTPMethod::POST)
         ([this](const crow::request& req, const std::string& media_id) {
         return handleManifestRequest(req, media_id);
             });
 
-    CROW_ROUTE(app, "/media/<string>/chunk/<string>").methods(crow::HTTPMethod::POST)
+    CROW_ROUTE(app, "/media/<string>/chunk/<string>")
+        .methods(crow::HTTPMethod::GET, crow::HTTPMethod::POST)
         ([this](const crow::request& req, const std::string& media_id, const std::string& chunk_name) {
         return handleChunkRequest(req, media_id, chunk_name);
             });
@@ -68,8 +71,28 @@ void API::run(int port) {
         return listProfiles(req);
         });
 
-    CROW_ROUTE(app, "/download/media_data")
-        ([this]() {
+    CROW_ROUTE(app, "/download/media_data").methods(crow::HTTPMethod::POST)
+        ([this](const crow::request& req){
+
+        auto x = crow::json::load(req.body);
+        if (!x) {
+            return crow::response(400, "Invalid JSON");
+        }
+
+        std::string userID = x["userID"].s();
+        std::string token = x["token"].s();
+
+        crow::json::wvalue response;
+
+
+        if (!checkToken(token, userID)) {
+            response["status"] = "error";
+            response["message"] = "Incorrect token.";
+            return crow::response(401, response);
+        }
+
+
+        db.generateMediaDataJson();
         std::ifstream file("media_data.json");
         if (!file.is_open()) {
             return crow::response(500, "Failed to open media_data.json");
@@ -87,6 +110,7 @@ void API::run(int port) {
     // Route to serve the pre-generated user metadata JSON file
     CROW_ROUTE(app, "/download/user_metadata").methods(crow::HTTPMethod::POST)
         ([this](const crow::request& req) {
+        
         auto x = crow::json::load(req.body);
         if (!x) {
             return crow::response(400, "Invalid JSON");
@@ -94,6 +118,7 @@ void API::run(int port) {
 
         std::string userID = x["userID"].s();
         std::string profileID = x["profileID"].s();
+  
 
         // Generate user metadata JSON if needed
         db.generateUserMetadataJson(userID, profileID);
@@ -116,49 +141,142 @@ void API::run(int port) {
 }
 
 
-crow::response API::handleManifestRequest(const crow::request& req, const std::string& media_id) {
-    auto x = crow::json::load(req.body);
-    if (!x) {
-        return crow::response(400, "Invalid JSON");
+// In api.cpp, update handleManifestRequest:
+
+bool API::validateRequest(const crow::request& req, std::string& userID, std::string& token) {
+    // Check headers first
+    auto userIdHeader = req.get_header_value("X-User-ID");
+    auto tokenHeader = req.get_header_value("X-Auth-Token");
+
+    if (!userIdHeader.empty() && !tokenHeader.empty()) {
+        userID = userIdHeader;
+        token = tokenHeader;
+        return checkToken(token, userID);
     }
 
-    std::string userID = x["userID"].s();
-    std::string token = x["token"].s();
-
-    crow::json::wvalue response;
-
-
-    if (!checkToken(token, userID)) {
-        response["status"] = "error";
-        response["message"] = "Incorrect token.";
-        return crow::response(401, response);
+    // Check query parameters
+    if (req.url_params.get("userID") && req.url_params.get("token")) {
+        userID = req.url_params.get("userID");
+        token = req.url_params.get("token");
+        return checkToken(token, userID);
     }
 
-    std::filesystem::path mpdPath = std::filesystem::path(chunksPath) / media_id / (media_id + ".mpd");
-    return serveFile(mpdPath.string());
+    // Check if the route matches the supported patterns
+    if (req.url.find("/media/") != std::string::npos) {
+        // Extract the last segment of the route to identify if it's `manifest` or `chunk/<string>`
+        std::string::size_type lastSlash = req.url.find_last_of('/');
+        if (lastSlash != std::string::npos) {
+            std::string lastSegment = req.url.substr(lastSlash + 1);
+
+            if (lastSegment == "manifest" || req.url.find("/chunk/") != std::string::npos) {
+                // Check query parameters in the URL for `userID` and `token`
+                auto userIdQuery = req.url_params.get("userID");
+                auto tokenQuery = req.url_params.get("token");
+
+                if (userIdQuery && tokenQuery) {
+                    userID = userIdQuery;
+                    token = tokenQuery;
+                    return checkToken(token, userID);
+                }
+            }
+        }
+    }
+
+    // Finally check the JSON body
+    try {
+        auto jsonBody = crow::json::load(req.body);
+        if (!jsonBody) return false;
+
+        userID = jsonBody["userID"].s();
+        token = jsonBody["token"].s();
+        return checkToken(token, userID);
+    }
+    catch (...) {
+        return false;
+    }
+
+    return false;
 }
 
-// Handler for serving media chunks
+
+
+
+crow::response API::handleManifestRequest(const crow::request& req, const std::string& media_id) {
+    std::string userID, token;
+
+    if (!validateRequest(req, userID, token)) {
+        return crow::response(401, "Invalid authentication");
+    }
+
+    // Construct the full path to the MPD file
+    std::filesystem::path mpdPath = std::filesystem::path(chunksPath) / media_id / (media_id + ".mpd");
+
+    try {
+        // Read the MPD file
+        std::ifstream file(mpdPath);
+        if (!file.is_open()) {
+            return crow::response(500, "Failed to open MPD file");
+        }
+
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        std::string manifestContent = buffer.str();
+
+        // Base URL for the media
+        std::string baseUrl = "http://localhost:18080/media/" + media_id + "/chunk";
+
+        // Replace paths in "initialization" and "media" attributes
+        auto replacePaths = [&manifestContent, &baseUrl](const std::string& attribute, const std::string& replacement) {
+            size_t pos = 0;
+            while ((pos = manifestContent.find(attribute + "=", pos)) != std::string::npos) {
+                size_t start = manifestContent.find("\"", pos) + 1;
+                size_t end = manifestContent.find("\"", start);
+                manifestContent.replace(start, end - start, baseUrl + replacement);
+                pos = end;
+            }
+            };
+
+        // Replace "initialization" attribute
+        replacePaths("initialization", "/init-stream$RepresentationID$.m4s");
+
+        // Replace "media" attribute
+        replacePaths("media", "/chunk-stream$RepresentationID$-$Number%05d$.m4s");
+
+        // Prepare the response
+        crow::response res;
+        res.body = manifestContent;
+        res.set_header("Content-Type", "application/dash+xml");
+        return res;
+    }
+    catch (const std::exception& e) {
+        return crow::response(500, std::string("Error processing MPD file: ") + e.what());
+    }
+}
+
+
+
+
 crow::response API::handleChunkRequest(const crow::request& req, const std::string& media_id, const std::string& chunk_name) {
-    auto x = crow::json::load(req.body);
-    if (!x) {
-        return crow::response(400, "Invalid JSON");
+    std::string userID, token;
+
+    //if (!validateRequest(req, userID, token)) {
+    //    return crow::response(401, "Invalid authentication");
+    //}
+
+    std::filesystem::path chunkPath = std::filesystem::path(chunksPath) / media_id / (chunk_name);
+
+    std::ifstream file(chunkPath, std::ios::binary);
+    if (!file.is_open()) {
+        return crow::response(404, "Chunk not found");
     }
 
-    std::string userID = x["userID"].s();
-    std::string token = x["token"].s();
+    std::string content((std::istreambuf_iterator<char>(file)),
+        std::istreambuf_iterator<char>());
 
-    crow::json::wvalue response;
-
-
-    if (!checkToken(token, userID)) {
-        response["status"] = "error";
-        response["message"] = "Incorrect token.";
-        return crow::response(401, response);
-    }
-
-    std::filesystem::path chunkPath = std::filesystem::path(chunksPath) / media_id / (chunk_name + ".m4s");
-    return serveFile(chunkPath.string());
+    crow::response res;
+    res.body = std::move(content);
+    res.set_header("Content-Type", "video/mp4");
+    return res;
 }
 
 
