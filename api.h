@@ -17,6 +17,7 @@ private:
 
     crow::response handleManifestRequest(const crow::request& req, const std::string& media_id);
     crow::response handleChunkRequest(const crow::request& req, const std::string& media_id, const std::string& chunk_name);
+    crow::response subtitlesRequest(const crow::request& req, const std::string& media_id, const std::string& language);
 
     crow::response serveFile(const std::string& path);
 

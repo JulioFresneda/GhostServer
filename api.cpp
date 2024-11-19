@@ -39,6 +39,12 @@ void API::run(int port) {
         return handleChunkRequest(req, media_id, chunk_name);
             });
 
+    CROW_ROUTE(app, "/media/<string>/subtitles/<string>")
+        .methods(crow::HTTPMethod::GET, crow::HTTPMethod::POST)
+        ([this](const crow::request& req, const std::string& media_id, const std::string& language) {
+        return subtitlesRequest(req, media_id, language);
+            });
+
 
 
     CROW_ROUTE(app, "/cover/<string>").methods(crow::HTTPMethod::POST)
@@ -143,6 +149,8 @@ void API::run(int port) {
 
 // In api.cpp, update handleManifestRequest:
 
+
+
 bool API::validateRequest(const crow::request& req, std::string& userID, std::string& token) {
     // Check headers first
     auto userIdHeader = req.get_header_value("X-User-ID");
@@ -199,11 +207,47 @@ bool API::validateRequest(const crow::request& req, std::string& userID, std::st
 }
 
 
+crow::response API::subtitlesRequest(const crow::request& req, const std::string& media_id, const std::string& language) {
+    std::string userID, token;
 
+    
+
+    // Construct the full path to the MPD file
+    std::filesystem::path vttPath = std::filesystem::path(chunksPath) / media_id / "subtitles" / (language);
+
+    try {
+        // Read the MPD file
+        std::ifstream file(vttPath);
+        if (!file.is_open()) {
+            return crow::response(500, "Failed to open VTT file");
+        }
+
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        std::string subtitlesContent = buffer.str();
+
+        // Ensure proper UTF-8 BOM if needed
+        if (subtitlesContent.length() >= 3 &&
+            (unsigned char)subtitlesContent[0] != 0xEF &&
+            (unsigned char)subtitlesContent[1] != 0xBB &&
+            (unsigned char)subtitlesContent[2] != 0xBF) {
+            subtitlesContent = std::string("\xEF\xBB\xBF") + subtitlesContent;
+        }
+
+        crow::response res;
+        res.body = subtitlesContent;
+        res.set_header("Content-Type", "text/vtt");
+        return res;
+    }
+    catch (const std::exception& e) {
+        return crow::response(500, std::string("Error processing VTT file: ") + e.what());
+    }
+}
 
 crow::response API::handleManifestRequest(const crow::request& req, const std::string& media_id) {
     std::string userID, token;
 
+    // Only validate auth for manifest requests
     if (!validateRequest(req, userID, token)) {
         return crow::response(401, "Invalid authentication");
     }
@@ -222,27 +266,50 @@ crow::response API::handleManifestRequest(const crow::request& req, const std::s
         buffer << file.rdbuf();
         std::string manifestContent = buffer.str();
 
-        // Base URL for the media
+        // Construct base URL with authentication parameters
         std::string baseUrl = "http://localhost:18080/media/" + media_id + "/chunk";
 
-        // Replace paths in "initialization" and "media" attributes
-        auto replacePaths = [&manifestContent, &baseUrl](const std::string& attribute, const std::string& replacement) {
+        // Modified URL patterns to include auth params in initialization and media URLs
+        auto replacePaths = [&manifestContent, &baseUrl, &userID, &token](const std::string& attribute, const std::string& replacement) {
             size_t pos = 0;
             while ((pos = manifestContent.find(attribute + "=", pos)) != std::string::npos) {
                 size_t start = manifestContent.find("\"", pos) + 1;
                 size_t end = manifestContent.find("\"", start);
-                manifestContent.replace(start, end - start, baseUrl + replacement);
+                // Add auth params to URLs
+                std::string newUrl = baseUrl + replacement;
+                manifestContent.replace(start, end - start, newUrl);
                 pos = end;
             }
             };
 
-        // Replace "initialization" attribute
+        // Update initialization segments
         replacePaths("initialization", "/init-stream$RepresentationID$.m4s");
 
-        // Replace "media" attribute
+        // Update media segments
         replacePaths("media", "/chunk-stream$RepresentationID$-$Number%05d$.m4s");
 
-        // Prepare the response
+        std::string baseVttUrl = "http://localhost:18080/media/" + media_id + "/subtitles/";
+
+        
+
+        // Look for </Period> tag to insert before it
+        size_t periodEnd = manifestContent.find("</Period>");
+        if (periodEnd != std::string::npos) {
+            std::string subtitleAdaptationSet = R"(
+                <AdaptationSet id="2" contentType="text" mimeType="text/vtt" lang="en" segmentAlignment="true">
+                    <Representation id="subtitles_en" mimeType="text/vtt" codecs="wvtt" bandwidth="256">
+                        <BaseURL>)" + baseVttUrl + R"(en.vtt</BaseURL>
+                    </Representation>
+                </AdaptationSet>
+                <AdaptationSet id="3" contentType="text" mimeType="text/vtt" lang="es" segmentAlignment="true">
+                    <Representation id="subtitles_es" mimeType="text/vtt" codecs="wvtt" bandwidth="256">
+                        <BaseURL>)" + baseVttUrl + R"(es.vtt</BaseURL>
+                    </Representation>
+                </AdaptationSet>
+            )";
+            //manifestContent.insert(periodEnd, subtitleAdaptationSet);
+        } 
+
         crow::response res;
         res.body = manifestContent;
         res.set_header("Content-Type", "application/dash+xml");
