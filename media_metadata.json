@@ -1,0 +1,20 @@
+{
+    "mediaMetadata": [
+        {
+            "language_chosen": "en",
+            "mediaID": "80e4d6437beacbe30d92e5606c8dfaaed62d1a14",
+            "percentage_watched": "0.669",
+            "profileID": "hola",
+            "subtitles_chosen": "",
+            "userID": "Julio"
+        },
+        {
+            "language_chosen": "EN",
+            "mediaID": "d777adada651804008d3b2219978abc1728ce16d",
+            "percentage_watched": "0.75",
+            "profileID": "hola",
+            "subtitles_chosen": "ES",
+            "userID": "Julio"
+        }
+    ]
+}

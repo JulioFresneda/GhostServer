@@ -28,8 +28,15 @@ public:
 
     std::vector<std::string> getColumnNames(const std::string& tableName);
     void generateMediaDataJson();
-    void generateUserMetadataJson(const std::string& userID, const std::string& profileID);
-
+    void generateMediaMetadataJson(const std::string& userID, const std::string& profileID);
+    int insertMediaMetadata(
+        const std::string& userID,
+        const std::string& profileID,
+        const std::string& mediaID,
+        double percentageWatched,
+        const std::string& languageChosen,
+        const std::string& subtitlesChosen
+    );
     std::string getImagePathById(const std::string& id, const std::string& coversPath);
 
 private:

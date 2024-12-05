@@ -339,7 +339,7 @@ void DatabaseHandler::generateMediaDataJson() {
 }
 
 
-void DatabaseHandler::generateUserMetadataJson(const std::string& userID, const std::string& profileID) {
+void DatabaseHandler::generateMediaMetadataJson(const std::string& userID, const std::string& profileID) {
     json userMetadataJson;
 
     // Get column names for the mediaMetadata table
@@ -364,9 +364,49 @@ void DatabaseHandler::generateUserMetadataJson(const std::string& userID, const 
     }
 
     // Write to JSON file
-    std::ofstream file("user_metadata.json");
+    std::ofstream file("media_metadata.json");
     file << userMetadataJson.dump(4);  // pretty-print with 4-space indentation
     file.close();
+}
+
+int DatabaseHandler::insertMediaMetadata(
+    const std::string& userID,
+    const std::string& profileID,
+    const std::string& mediaID,
+    double percentageWatched,
+    const std::string& languageChosen,
+    const std::string& subtitlesChosen
+) {
+    try {
+        // Prepare the SQL insert statement
+        const char* sql = R"(
+            INSERT OR REPLACE INTO mediaMetadata (
+                userID,
+                profileID,
+                mediaID,
+                percentage_watched,
+                language_chosen,
+                subtitles_chosen
+            ) VALUES (?, ?, ?, ?, ?, ?);
+        )";
+
+        CppSQLite3Statement stmt = db.compileStatement(sql);
+
+        // Bind values to the prepared statement
+        stmt.bind(1, userID.c_str());
+        stmt.bind(2, profileID.c_str());
+        stmt.bind(3, mediaID.c_str());
+        stmt.bind(4, percentageWatched);
+        stmt.bind(5, languageChosen.c_str());
+        stmt.bind(6, subtitlesChosen.c_str());
+
+        // Execute the statement
+        stmt.execDML();
+        return 0;
+    }
+    catch (const std::exception& e) {
+        return 1;
+    }
 }
 
 

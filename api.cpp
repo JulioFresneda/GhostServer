@@ -58,7 +58,7 @@ void API::run(int port) {
 
     // Route to get user-specific metadata JSON
     CROW_ROUTE(app, "/user/metadata").methods(crow::HTTPMethod::POST)([this](const crow::request& req) {
-        return getUserMetadata(req);
+        return getMediaMetadata(req);
         });
 
 
@@ -114,7 +114,7 @@ void API::run(int port) {
             });
 
     // Route to serve the pre-generated user metadata JSON file
-    CROW_ROUTE(app, "/download/user_metadata").methods(crow::HTTPMethod::POST)
+    CROW_ROUTE(app, "/download/media_metadata").methods(crow::HTTPMethod::POST)
         ([this](const crow::request& req) {
         
         auto x = crow::json::load(req.body);
@@ -127,11 +127,11 @@ void API::run(int port) {
   
 
         // Generate user metadata JSON if needed
-        db.generateUserMetadataJson(userID, profileID);
+        db.generateMediaMetadataJson(userID, profileID);
 
-        std::ifstream file("user_metadata.json");
+        std::ifstream file("media_metadata.json");
         if (!file.is_open()) {
-            return crow::response(500, "Failed to open user_metadata.json");
+            return crow::response(500, "Failed to open media_metadata.json");
         }
 
         std::stringstream buffer;
@@ -142,6 +142,10 @@ void API::run(int port) {
         res.add_header("Content-Type", "application/json");
         return res;
             });
+
+    CROW_ROUTE(app, "/update_media_metadata").methods(crow::HTTPMethod::POST)([this](const crow::request& req) {
+        return updateMediaMetadata(req);
+        });
 
     app.port(port).multithreaded().run();
 }
@@ -267,26 +271,30 @@ crow::response API::handleManifestRequest(const crow::request& req, const std::s
         std::string manifestContent = buffer.str();
 
         // Construct base URL with authentication parameters
-        std::string baseUrl = "http://localhost:18080/media/" + media_id + "/chunk";
+        std::string baseUrl = "http://localhost:18080/media/" + media_id + "/chunk/";
 
         // Modified URL patterns to include auth params in initialization and media URLs
-        auto replacePaths = [&manifestContent, &baseUrl, &userID, &token](const std::string& attribute, const std::string& replacement) {
+        auto replacePaths = [&manifestContent, &baseUrl](const std::string& attribute, const std::string& replacement) {
             size_t pos = 0;
             while ((pos = manifestContent.find(attribute + "=", pos)) != std::string::npos) {
                 size_t start = manifestContent.find("\"", pos) + 1;
                 size_t end = manifestContent.find("\"", start);
-                // Add auth params to URLs
+                // Construct the new URL
                 std::string newUrl = baseUrl + replacement;
                 manifestContent.replace(start, end - start, newUrl);
                 pos = end;
             }
             };
 
+        // Replace `initialization` and `media` attributes
+        replacePaths("initialization", "init-stream$RepresentationID$.m4s");
+        replacePaths("media", "chunk-stream$RepresentationID$-$Number%05d$.m4s");
+
         // Update initialization segments
-        replacePaths("initialization", "/init-stream$RepresentationID$.m4s");
+        //replacePaths("initialization", "/init-stream$RepresentationID$.m4s");
 
         // Update media segments
-        replacePaths("media", "/chunk-stream$RepresentationID$-$Number%05d$.m4s");
+        //replacePaths("media", "/chunk-stream$RepresentationID$-$Number%05d$.m4s");
 
         std::string baseVttUrl = "http://localhost:18080/media/" + media_id + "/subtitles/";
 
@@ -382,7 +390,7 @@ crow::response API::getMediaData(const crow::request& req) {
     return crow::response{ buffer.str() };
 }
 
-crow::response API::getUserMetadata(const crow::request& req) {
+crow::response API::getMediaMetadata(const crow::request& req) {
     auto x = crow::json::load(req.body);
     if (!x) {
         return crow::response(400, "Invalid JSON");
@@ -392,7 +400,7 @@ crow::response API::getUserMetadata(const crow::request& req) {
     std::string profileID = x["profileID"].s();
 
     // Generate the user metadata JSON file based on userID and profileID
-    db.generateUserMetadataJson(userID, profileID);
+    db.generateMediaMetadataJson(userID, profileID);
 
     // Read the generated file
     std::ifstream file("user_metadata.json");
@@ -405,6 +413,43 @@ crow::response API::getUserMetadata(const crow::request& req) {
     file.close();
 
     return crow::response{ buffer.str() };
+}
+
+crow::response API::updateMediaMetadata(const crow::request& req) {
+    auto x = crow::json::load(req.body);
+    if (!x) {
+        return crow::response(400, "Invalid JSON");
+    }
+
+    std::string userID = x["userID"].s();
+    std::string profileID = x["profileID"].s();
+    std::string mediaID = x["mediaID"].s();
+    double percentageWatched = std::stod(x["percentageWatched"].s());
+    std::string languageChosen = x["languageChosen"].s();
+    std::string subtitlesChosen = x["subtitlesChosen"].s();
+
+    std::string token = x["token"].s();
+
+    crow::json::wvalue response;
+
+
+    if (!checkToken(token, userID)) {
+        response["status"] = "error";
+        response["message"] = "Incorrect token.";
+        return crow::response(401, response);
+    }
+
+    int success = db.insertMediaMetadata(userID, profileID, mediaID, percentageWatched, languageChosen, subtitlesChosen);
+    if (success == 0) {
+        response["status"] = "success";
+        response["message"] = "Profile created successfully.";
+    }
+    else {
+        response["status"] = "error";
+        response["message"] = "Failed to update media metadata.";
+    }
+
+    return crow::response(std::move(response));  // Use std::move here
 }
 
 

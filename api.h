@@ -22,7 +22,8 @@ private:
     crow::response serveFile(const std::string& path);
 
     crow::response getMediaData(const crow::request& req);
-    crow::response getUserMetadata(const crow::request& req);
+    crow::response getMediaMetadata(const crow::request& req);
+    crow::response updateMediaMetadata(const crow::request& req);
 
     crow::response addProfile(const crow::request& req);
     crow::response deleteProfile(const crow::request& req);
