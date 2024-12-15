@@ -3,17 +3,33 @@
         {
             "language_chosen": "en",
             "mediaID": "80e4d6437beacbe30d92e5606c8dfaaed62d1a14",
-            "percentage_watched": "0.669",
+            "percentage_watched": "0.997",
             "profileID": "hola",
             "subtitles_chosen": "",
             "userID": "Julio"
         },
         {
-            "language_chosen": "EN",
-            "mediaID": "d777adada651804008d3b2219978abc1728ce16d",
-            "percentage_watched": "0.75",
+            "language_chosen": "en",
+            "mediaID": "a14ec9855a6968b747ad4950a246a421dda4c331",
+            "percentage_watched": "0.029",
             "profileID": "hola",
-            "subtitles_chosen": "ES",
+            "subtitles_chosen": "",
+            "userID": "Julio"
+        },
+        {
+            "language_chosen": "en",
+            "mediaID": "b8d93d95025982533a7bd51a44e60df6f9eefcb5",
+            "percentage_watched": "0.006",
+            "profileID": "hola",
+            "subtitles_chosen": "",
+            "userID": "Julio"
+        },
+        {
+            "language_chosen": "en",
+            "mediaID": "d777adada651804008d3b2219978abc1728ce16d",
+            "percentage_watched": "0.633",
+            "profileID": "hola",
+            "subtitles_chosen": "Track 2",
             "userID": "Julio"
         }
     ]
