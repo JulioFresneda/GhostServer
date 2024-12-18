@@ -3,13 +3,13 @@
   "spdxVersion": "SPDX-2.2",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "documentNamespace": "https://spdx.org/spdxdocs/asio-x64-windows-1.30.2-a26eaa72-b74a-4f14-a252-b92ba0499124",
-  "name": "asio:x64-windows@1.30.2 56feeb5d6dec3312298760a4b344576da1b19f4a892e7e7e269a32e45b56c3ad",
+  "documentNamespace": "https://spdx.org/spdxdocs/asio-x64-windows-1.30.2-0c3e446f-069a-4b3d-882e-03f4aed43be8",
+  "name": "asio:x64-windows@1.30.2 1fd66b3d12e7447a3082328750934c843f866a3beb0f757fd0986ea3ddc8f788",
   "creationInfo": {
     "creators": [
-      "Tool: vcpkg-2024-06-10-02590c430e4ed9215d27870138c2e579cc338772"
+      "Tool: vcpkg-2024-11-12-eb492805e92a2c14a230f5c3deb3e89f6771c321"
     ],
-    "created": "2024-11-08T11:53:14Z"
+    "created": "2024-12-09T10:14:00Z"
   },
   "relationships": [
     {
@@ -79,7 +79,7 @@
     {
       "name": "asio:x64-windows",
       "SPDXID": "SPDXRef-binary",
-      "versionInfo": "56feeb5d6dec3312298760a4b344576da1b19f4a892e7e7e269a32e45b56c3ad",
+      "versionInfo": "1fd66b3d12e7447a3082328750934c843f866a3beb0f757fd0986ea3ddc8f788",
       "downloadLocation": "NONE",
       "licenseConcluded": "BSL-1.0",
       "licenseDeclared": "NOASSERTION",

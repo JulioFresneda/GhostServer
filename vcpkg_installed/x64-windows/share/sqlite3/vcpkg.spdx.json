@@ -3,13 +3,13 @@
   "spdxVersion": "SPDX-2.2",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "documentNamespace": "https://spdx.org/spdxdocs/sqlite3-x64-windows-3.46.0#1-1918eb82-19c8-4223-8b13-6e586beda4fd",
-  "name": "sqlite3:x64-windows@3.46.0#1 5b89e0a69dd77efd5acf8aa1a679249919c50ab29d15afcb904de557647e78a8",
+  "documentNamespace": "https://spdx.org/spdxdocs/sqlite3-x64-windows-3.46.0#1-aac39a5c-00e9-4927-a993-f8b92b22a89f",
+  "name": "sqlite3:x64-windows@3.46.0#1 9afe05406632a121f7ac661bf853019cc876115ccba4b9c0a5011443191dffbe",
   "creationInfo": {
     "creators": [
-      "Tool: vcpkg-2024-06-10-02590c430e4ed9215d27870138c2e579cc338772"
+      "Tool: vcpkg-2024-11-12-eb492805e92a2c14a230f5c3deb3e89f6771c321"
     ],
-    "created": "2024-11-08T11:37:16Z"
+    "created": "2024-12-09T10:14:44Z"
   },
   "relationships": [
     {
@@ -129,7 +129,7 @@
     {
       "name": "sqlite3:x64-windows",
       "SPDXID": "SPDXRef-binary",
-      "versionInfo": "5b89e0a69dd77efd5acf8aa1a679249919c50ab29d15afcb904de557647e78a8",
+      "versionInfo": "9afe05406632a121f7ac661bf853019cc876115ccba4b9c0a5011443191dffbe",
       "downloadLocation": "NONE",
       "licenseConcluded": "blessing",
       "licenseDeclared": "NOASSERTION",

@@ -2,6 +2,9 @@
   "dependencies": [
     "sqlite3",
     "crow",
-    "nlohmann-json"
+    "nlohmann-json",
+    "jwt-cpp",
+    "openssl",
+    "picojson"
   ]
 }

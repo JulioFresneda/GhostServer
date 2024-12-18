@@ -9,23 +9,73 @@ using json = nlohmann::json;
 #include <filesystem>
 #include <regex>
 namespace fs = std::filesystem;     
+#include "jwt-cpp/jwt.h"
 
+const std::string SECRET_KEY = "carmen";
+
+std::string generateJWT(const std::string& userID) {
+    return jwt::create()
+        .set_issuer("api_service")
+        .set_subject(userID)
+        .set_issued_at(std::chrono::system_clock::now())
+        //.set_expires_at(std::chrono::system_clock::now() + std::chrono::hours(1)) // Token expires in 1 hour
+        .sign(jwt::algorithm::hs256{ SECRET_KEY });
+}
+
+bool validateJWT(const std::string& token, std::string& userID) {
+    try {
+        auto decoded = jwt::decode(token);
+        auto verifier = jwt::verify()
+            .allow_algorithm(jwt::algorithm::hs256{ SECRET_KEY })
+            .with_issuer("api_service");
+        verifier.verify(decoded);
+
+        userID = decoded.get_subject(); // Extract user ID from the subject claim
+        return true;
+    }
+    catch (const std::exception& e) {
+        std::cerr << "JWT validation error: " << e.what() << std::endl;
+        return false;
+    }
+}
+
+bool API::validateRequest(const crow::request& req, std::string& userID) {
+    // Check headers first
+    auto authHeader = req.get_header_value("Authorization");
+    if (authHeader.empty()) {
+        return false;
+    }
+
+    // Expect "Bearer <token>"
+    const std::string bearerPrefix = "Bearer ";
+    if (authHeader.find(bearerPrefix) != 0) {
+        return false;
+    }
+
+    // Extract the JWT from the header
+    std::string token = authHeader.substr(bearerPrefix.size());
+    return validateJWT(token, userID);
+}
 
 API::API(DatabaseHandler& dbHandler, const std::string& coversPath, const std::string& chunksPath)
     : db(dbHandler), coversPath(coversPath), chunksPath(chunksPath) {
-    loadTokens();
+    loasPasswords();
 }
 
 
-void API::loadTokens() {
-    std::vector<std::pair<std::string, std::string>> users = db.getAllUserTokens();
+void API::loasPasswords() {
+    std::vector<std::pair<std::string, std::string>> users = db.getAllUserPasswords();
     for (const auto& user : users) {
-        tokens[user.first] = user.second;  // user.first is userID, user.second is token
+        passwords[user.first] = user.second;  // user.first is userID, user.second is pass
     }
 }
 
 void API::run(int port) {
     crow::SimpleApp app;
+
+    CROW_ROUTE(app, "/auth/login").methods(crow::HTTPMethod::POST)([this](const crow::request& req) {
+        return login(req);
+        });
 
     CROW_ROUTE(app, "/media/<string>/manifest")
         .methods(crow::HTTPMethod::GET, crow::HTTPMethod::POST)
@@ -79,68 +129,14 @@ void API::run(int port) {
 
     CROW_ROUTE(app, "/download/media_data").methods(crow::HTTPMethod::POST)
         ([this](const crow::request& req){
-
-        auto x = crow::json::load(req.body);
-        if (!x) {
-            return crow::response(400, "Invalid JSON");
-        }
-
-        std::string userID = x["userID"].s();
-        std::string token = x["token"].s();
-
-        crow::json::wvalue response;
-
-
-        if (!checkToken(token, userID)) {
-            response["status"] = "error";
-            response["message"] = "Incorrect token.";
-            return crow::response(401, response);
-        }
-
-
-        db.generateMediaDataJson();
-        std::ifstream file("media_data.json");
-        if (!file.is_open()) {
-            return crow::response(500, "Failed to open media_data.json");
-        }
-
-        std::stringstream buffer;
-        buffer << file.rdbuf();
-        file.close();
-
-        crow::response res(buffer.str());
-        res.add_header("Content-Type", "application/json");
-        return res;
+        return downloadMediaData(req);
             });
 
     // Route to serve the pre-generated user metadata JSON file
     CROW_ROUTE(app, "/download/media_metadata").methods(crow::HTTPMethod::POST)
         ([this](const crow::request& req) {
         
-        auto x = crow::json::load(req.body);
-        if (!x) {
-            return crow::response(400, "Invalid JSON");
-        }
-
-        std::string userID = x["userID"].s();
-        std::string profileID = x["profileID"].s();
-  
-
-        // Generate user metadata JSON if needed
-        db.generateMediaMetadataJson(userID, profileID);
-
-        std::ifstream file("media_metadata.json");
-        if (!file.is_open()) {
-            return crow::response(500, "Failed to open media_metadata.json");
-        }
-
-        std::stringstream buffer;
-        buffer << file.rdbuf();
-        file.close();
-
-        crow::response res(buffer.str());
-        res.add_header("Content-Type", "application/json");
-        return res;
+        return downloadMediaMetadata(req);
             });
 
     CROW_ROUTE(app, "/update_media_metadata").methods(crow::HTTPMethod::POST)([this](const crow::request& req) {
@@ -150,71 +146,95 @@ void API::run(int port) {
     app.port(port).multithreaded().run();
 }
 
-
-// In api.cpp, update handleManifestRequest:
-
-
-
-bool API::validateRequest(const crow::request& req, std::string& userID, std::string& token) {
-    // Check headers first
-    auto userIdHeader = req.get_header_value("X-User-ID");
-    auto tokenHeader = req.get_header_value("X-Auth-Token");
-
-    if (!userIdHeader.empty() && !tokenHeader.empty()) {
-        userID = userIdHeader;
-        token = tokenHeader;
-        return checkToken(token, userID);
+crow::response API::login(const crow::request& req) {
+    auto bodyJson = crow::json::load(req.body);
+    if (!bodyJson) {
+        return crow::response(400, "Invalid JSON");
     }
 
-    // Check query parameters
-    if (req.url_params.get("userID") && req.url_params.get("token")) {
-        userID = req.url_params.get("userID");
-        token = req.url_params.get("token");
-        return checkToken(token, userID);
+    // Extract `userID` and `password` from the request body
+    std::string userID = bodyJson["userID"].s();
+    std::string password = bodyJson["password"].s();
+
+    // Validate the user credentials using your database
+    if (checkToken(userID, password)) { // Replace with your actual validation logic
+        return crow::response(401, "Invalid userID or password");
     }
 
-    // Check if the route matches the supported patterns
-    if (req.url.find("/media/") != std::string::npos) {
-        // Extract the last segment of the route to identify if it's `manifest` or `chunk/<string>`
-        std::string::size_type lastSlash = req.url.find_last_of('/');
-        if (lastSlash != std::string::npos) {
-            std::string lastSegment = req.url.substr(lastSlash + 1);
+    // Generate a JWT if the credentials are valid
+    std::string token = generateJWT(userID);              // Sign the token with your secret key
 
-            if (lastSegment == "manifest" || req.url.find("/chunk/") != std::string::npos) {
-                // Check query parameters in the URL for `userID` and `token`
-                auto userIdQuery = req.url_params.get("userID");
-                auto tokenQuery = req.url_params.get("token");
-
-                if (userIdQuery && tokenQuery) {
-                    userID = userIdQuery;
-                    token = tokenQuery;
-                    return checkToken(token, userID);
-                }
-            }
-        }
-    }
-
-    // Finally check the JSON body
-    try {
-        auto jsonBody = crow::json::load(req.body);
-        if (!jsonBody) return false;
-
-        userID = jsonBody["userID"].s();
-        token = jsonBody["token"].s();
-        return checkToken(token, userID);
-    }
-    catch (...) {
-        return false;
-    }
-
-    return false;
+    // Respond with the token
+    crow::json::wvalue response;
+    response["token"] = token;
+    return crow::response(response);
 }
 
 
-crow::response API::subtitlesRequest(const crow::request& req, const std::string& media_id, const std::string& language) {
-    std::string userID, token;
+// In api.cpp, update handleManifestRequest:
+
+crow::response API::downloadMediaMetadata(const crow::request& req) {
+    
+    std::string userID;
+
+    if (!validateRequest(req, userID)) {
+        return crow::response(401, "Invalid authentication");
+    }
+    
+    auto x = crow::json::load(req.body);
+    if (!x) {
+        return crow::response(400, "Invalid JSON");
+    }
+
+    std::string profileID = x["profileID"].s();
 
     
+    // Generate user metadata JSON if needed
+    db.generateMediaMetadataJson(userID, profileID);
+
+    std::ifstream file("media_metadata.json");
+    if (!file.is_open()) {
+        return crow::response(500, "Failed to open media_metadata.json");
+    }
+
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    file.close();
+
+    crow::response res(buffer.str());
+    res.add_header("Content-Type", "application/json");
+    return res;
+}
+
+
+crow::response API::downloadMediaData(const crow::request& req) {
+    std::string userID;
+
+    if (!validateRequest(req, userID)) {
+        return crow::response(401, "Invalid authentication");
+    }
+
+    db.generateMediaDataJson();
+    std::ifstream file("media_data.json");
+    if (!file.is_open()) {
+        return crow::response(500, "Failed to open media_data.json");
+    }
+
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    file.close();
+
+    crow::response res(buffer.str());
+    res.add_header("Content-Type", "application/json");
+    return res;
+}
+
+crow::response API::subtitlesRequest(const crow::request& req, const std::string& media_id, const std::string& language) {
+    std::string userID;
+
+    if (!validateRequest(req, userID)) {
+        return crow::response(401, "Invalid authentication");
+    }
 
     // Construct the full path to the MPD file
     std::filesystem::path vttPath = std::filesystem::path(chunksPath) / media_id / "subtitles" / (language);
@@ -249,10 +269,9 @@ crow::response API::subtitlesRequest(const crow::request& req, const std::string
 }
 
 crow::response API::handleManifestRequest(const crow::request& req, const std::string& media_id) {
-    std::string userID, token;
+    std::string userID;
 
-    // Only validate auth for manifest requests
-    if (!validateRequest(req, userID, token)) {
+    if (!validateRequest(req, userID)) {
         return crow::response(401, "Invalid authentication");
     }
 
@@ -374,6 +393,12 @@ crow::response API::serveFile(const std::string& path) {
 
 
 crow::response API::getMediaData(const crow::request& req) {
+    std::string userID;
+
+    if (!validateRequest(req, userID)) {
+        return crow::response(401, "Invalid authentication");
+    }
+
     // Generate the media data JSON file
     db.generateMediaDataJson();
 
@@ -391,12 +416,17 @@ crow::response API::getMediaData(const crow::request& req) {
 }
 
 crow::response API::getMediaMetadata(const crow::request& req) {
+    std::string userID;
+
+    if (!validateRequest(req, userID)) {
+        return crow::response(401, "Invalid authentication");
+    }
+
     auto x = crow::json::load(req.body);
     if (!x) {
         return crow::response(400, "Invalid JSON");
     }
 
-    std::string userID = x["userID"].s();
     std::string profileID = x["profileID"].s();
 
     // Generate the user metadata JSON file based on userID and profileID
@@ -416,28 +446,28 @@ crow::response API::getMediaMetadata(const crow::request& req) {
 }
 
 crow::response API::updateMediaMetadata(const crow::request& req) {
+    std::string userID;
+
+    if (!validateRequest(req, userID)) {
+        return crow::response(401, "Invalid authentication");
+    }
+
     auto x = crow::json::load(req.body);
     if (!x) {
         return crow::response(400, "Invalid JSON");
     }
 
-    std::string userID = x["userID"].s();
     std::string profileID = x["profileID"].s();
     std::string mediaID = x["mediaID"].s();
     double percentageWatched = std::stod(x["percentageWatched"].s());
     std::string languageChosen = x["languageChosen"].s();
     std::string subtitlesChosen = x["subtitlesChosen"].s();
 
-    std::string token = x["token"].s();
+
 
     crow::json::wvalue response;
 
 
-    if (!checkToken(token, userID)) {
-        response["status"] = "error";
-        response["message"] = "Incorrect token.";
-        return crow::response(401, response);
-    }
 
     int success = db.insertMediaMetadata(userID, profileID, mediaID, percentageWatched, languageChosen, subtitlesChosen);
     if (success == 0) {
@@ -456,24 +486,23 @@ crow::response API::updateMediaMetadata(const crow::request& req) {
 
 
 crow::response API::addProfile(const crow::request& req) {
+    std::string userID;
+
+    if (!validateRequest(req, userID)) {
+        return crow::response(401, "Invalid authentication");
+    }
+
     auto x = crow::json::load(req.body);
     if (!x) {
         return crow::response(400, "Invalid JSON");
     }
 
-    std::string userID = x["userID"].s();
     std::string profileID = x["profileID"].s();
     std::string pictureID = x["pictureID"].s();
     std::string token = x["token"].s();
 
     crow::json::wvalue response;
     
-
-    if (!checkToken(token, userID)) {
-        response["status"] = "error";
-        response["message"] = "Incorrect token.";
-        return crow::response(401, response);
-    }
 
     bool success = db.addProfile(userID, profileID, pictureID);
     if (success) {
@@ -489,22 +518,21 @@ crow::response API::addProfile(const crow::request& req) {
 }
 
 crow::response API::deleteProfile(const crow::request& req) {
+    std::string userID;
+
+    if (!validateRequest(req, userID)) {
+        return crow::response(401, "Invalid authentication");
+    }
+
     auto x = crow::json::load(req.body);
     if (!x) {
         return crow::response(400, "Invalid JSON");
     }
 
     std::string profileID = x["profileID"].s();
-    std::string userID = x["userID"].s();
     std::string token = x["token"].s();
 
     crow::json::wvalue response;
-
-    if (!checkToken(token, userID)) {
-        response["status"] = "error";
-        response["message"] = "Incorrect token.";
-        return crow::response(401, response);
-    }
 
 
     bool success = db.deleteProfile(userID, profileID);
@@ -523,21 +551,17 @@ crow::response API::deleteProfile(const crow::request& req) {
 }
 
 crow::response API::listProfiles(const crow::request& req) {
-    auto x = crow::json::load(req.body);
-    if (!x) {
-        return crow::response(400, "Invalid JSON");
+    std::string userID;
+
+    if (!validateRequest(req, userID)) {
+        return crow::response(401, "Invalid authentication");
     }
 
-    std::string userID = x["userID"].s();
-    std::string token = x["token"].s();
+ 
 
     crow::json::wvalue response;
 
-    if (!checkToken(token, userID)) {
-        response["status"] = "error";
-        response["message"] = "Incorrect token.";
-        return crow::response(401, response);
-    }
+  
 
     std::vector<std::pair<std::string, std::string>> profiles;
     db.getProfiles(userID, profiles);
@@ -561,12 +585,18 @@ crow::response API::listProfiles(const crow::request& req) {
 
 
 bool API::checkToken(const std::string& token, const std::string& userID) {
-    auto it = tokens.find(userID);
-    return (it != tokens.end() && it->second == token);
+    auto it = passwords.find(userID);
+    return (it != passwords.end() && it->second == token);
 }
 
 
 crow::response API::getCoverImage(const crow::request& req, const std::string& id) {
+    std::string userID;
+
+    if (!validateRequest(req, userID)) {
+        return crow::response(401, "Invalid authentication");
+    }
+
     // Parse JSON body to get token and userID
     auto bodyJson = json::parse(req.body, nullptr, false);
     if (bodyJson.is_discarded()) {
@@ -578,14 +608,6 @@ crow::response API::getCoverImage(const crow::request& req, const std::string& i
         return crow::response(400, "Missing token or userID in request body");
     }
 
-    std::string token = bodyJson["token"].get<std::string>();
-    std::string userID = bodyJson["userID"].get<std::string>();
-
-    // Check if the provided token is valid for the given userID
-    if (!checkToken(token, userID)) {
-        // If the token is invalid, return a 401 Unauthorized response
-        return crow::response(401, "Unauthorized access - invalid token");
-    }
 
     // Retrieve the full path to the image using DatabaseHandler
     std::string fullPath = db.getImagePathById(id, coversPath);

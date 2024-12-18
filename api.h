@@ -15,6 +15,9 @@ private:
     const std::string& coversPath;
     const std::string chunksPath;
 
+    crow::response downloadMediaData(const crow::request& req);
+    crow::response downloadMediaMetadata(const crow::request& req);
+
     crow::response handleManifestRequest(const crow::request& req, const std::string& media_id);
     crow::response handleChunkRequest(const crow::request& req, const std::string& media_id, const std::string& chunk_name);
     crow::response subtitlesRequest(const crow::request& req, const std::string& media_id, const std::string& language);
@@ -31,12 +34,15 @@ private:
 
     crow::response getCoverImage(const crow::request& req, const std::string& id);
 
-    std::unordered_map<std::string, std::string> tokens;
+    std::unordered_map<std::string, std::string> passwords;
 
+    crow::response login(const crow::request& req);
     bool checkToken(const std::string& tokenProvided, const std::string& userID);
-    void loadTokens();
+    void loasPasswords();
 
-    bool validateRequest(const crow::request& req, std::string& userID, std::string& token);
+    bool validateRequest(const crow::request& req, std::string& userID);
+
+
 
 
 

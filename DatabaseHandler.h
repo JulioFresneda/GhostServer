@@ -15,7 +15,7 @@ public:
     void getProfiles(const std::string& userID, std::vector<std::pair<std::string, std::string>>& profiles);
 
     std::string getToken(const std::string& userID);
-    std::vector<std::pair<std::string, std::string>> getAllUserTokens();
+    std::vector<std::pair<std::string, std::string>> getAllUserPasswords();
 
 
 

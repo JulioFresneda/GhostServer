@@ -40,7 +40,7 @@ std::string DatabaseHandler::getToken(const std::string& userID) {
     }
 }
 
-std::vector<std::pair<std::string, std::string>> DatabaseHandler::getAllUserTokens() {
+std::vector<std::pair<std::string, std::string>> DatabaseHandler::getAllUserPasswords() {
     std::vector<std::pair<std::string, std::string>> tokens;
 
     try {
