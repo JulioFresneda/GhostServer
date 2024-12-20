@@ -5,6 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <nlohmann/json.hpp>
+#include <curl/curl.h>
 using json = nlohmann::json;
 #include <filesystem>
 #include <regex>
@@ -143,7 +144,7 @@ void API::run(int port) {
         return updateMediaMetadata(req);
         });
 
-    app.port(port).multithreaded().run();
+    app.bindaddr("0.0.0.0").port(port).multithreaded().run();
 }
 
 crow::response API::login(const crow::request& req) {
@@ -232,9 +233,9 @@ crow::response API::downloadMediaData(const crow::request& req) {
 crow::response API::subtitlesRequest(const crow::request& req, const std::string& media_id, const std::string& language) {
     std::string userID;
 
-    if (!validateRequest(req, userID)) {
-        return crow::response(401, "Invalid authentication");
-    }
+    //if (!validateRequest(req, userID)) {
+    //    return crow::response(401, "Invalid authentication");
+    //}
 
     // Construct the full path to the MPD file
     std::filesystem::path vttPath = std::filesystem::path(chunksPath) / media_id / "subtitles" / (language);
@@ -271,9 +272,9 @@ crow::response API::subtitlesRequest(const crow::request& req, const std::string
 crow::response API::handleManifestRequest(const crow::request& req, const std::string& media_id) {
     std::string userID;
 
-    if (!validateRequest(req, userID)) {
-        return crow::response(401, "Invalid authentication");
-    }
+    //if (!validateRequest(req, userID)) {
+    //    return crow::response(401, "Invalid authentication");
+    //}
 
     // Construct the full path to the MPD file
     std::filesystem::path mpdPath = std::filesystem::path(chunksPath) / media_id / (media_id + ".mpd");
@@ -290,7 +291,7 @@ crow::response API::handleManifestRequest(const crow::request& req, const std::s
         std::string manifestContent = buffer.str();
 
         // Construct base URL with authentication parameters
-        std::string baseUrl = "http://localhost:18080/media/" + media_id + "/chunk/";
+        std::string baseUrl = "http://" + getPublicIP() + ":38080/media/" + media_id + "/chunk/";
 
         // Modified URL patterns to include auth params in initialization and media URLs
         auto replacePaths = [&manifestContent, &baseUrl](const std::string& attribute, const std::string& replacement) {
@@ -315,7 +316,7 @@ crow::response API::handleManifestRequest(const crow::request& req, const std::s
         // Update media segments
         //replacePaths("media", "/chunk-stream$RepresentationID$-$Number%05d$.m4s");
 
-        std::string baseVttUrl = "http://localhost:18080/media/" + media_id + "/subtitles/";
+        std::string baseVttUrl = "http://" + getPublicIP() + ":38080 / media / " + media_id + " / subtitles / ";
 
         
 
@@ -603,11 +604,6 @@ crow::response API::getCoverImage(const crow::request& req, const std::string& i
         return crow::response(400, "Invalid JSON in request body");
     }
 
-    // Check if both token and userID are provided in the body
-    if (!bodyJson.contains("token") || !bodyJson.contains("userID")) {
-        return crow::response(400, "Missing token or userID in request body");
-    }
-
 
     // Retrieve the full path to the image using DatabaseHandler
     std::string fullPath = db.getImagePathById(id, coversPath);
@@ -635,3 +631,32 @@ crow::response API::getCoverImage(const crow::request& req, const std::string& i
     return res;
 }
 
+size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* userData) {
+    userData->append(static_cast<char*>(contents), size * nmemb);
+    return size * nmemb;
+}
+
+std::string API::getPublicIP() {
+    CURL* curl;
+    CURLcode res;
+    std::string publicIP; // Variable to store the IP address
+
+    curl = curl_easy_init(); // Initialize cURL
+    if (curl) {
+        curl_easy_setopt(curl, CURLOPT_URL, "https://api.ipify.org"); // Set the URL
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback); // Set callback function
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &publicIP); // Set data for the callback
+        res = curl_easy_perform(curl); // Perform the request
+        if (res != CURLE_OK) {
+            std::cerr << "cURL error: " << curl_easy_strerror(res) << std::endl;
+            curl_easy_cleanup(curl); // Clean up before returning
+            return ""; // Return an empty string on failure
+        }
+        curl_easy_cleanup(curl); // Clean up
+    }
+    else {
+        std::cerr << "Failed to initialize cURL." << std::endl;
+        return ""; // Return an empty string if cURL failed to initialize
+    }
+    return publicIP; // Return the public IP as a string
+}

@@ -5,6 +5,7 @@
     "nlohmann-json",
     "jwt-cpp",
     "openssl",
-    "picojson"
+    "picojson",
+    "curl"
   ]
 }

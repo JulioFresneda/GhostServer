@@ -78,9 +78,9 @@ int main() {
         std::string chunksPath = loadChunksPath(configFilePath);
 
         API api(dbHandler, coversPath, chunksPath);
-
+        std::cout << "Public IP: " << api.getPublicIP() << std::endl;
         // Run the API server on a specified port
-        api.run(18080);
+        api.run(38080);
 
     }
     catch (const std::exception& e) {

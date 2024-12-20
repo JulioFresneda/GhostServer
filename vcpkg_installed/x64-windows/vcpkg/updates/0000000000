@@ -1,9 +1,8 @@
-Package: openssl
-Version: 3.3.0
-Port-Version: 1
-Depends: vcpkg-cmake, vcpkg-cmake-config, vcpkg-cmake-get-vars
+Package: zlib
+Version: 1.3.1
+Depends: vcpkg-cmake
 Architecture: x64-windows
 Multi-Arch: same
-Abi: dbeeb837efe077176f614faf9a70f018f76fc488b70d8b0f812ccd8650f88ac5
-Description: OpenSSL is an open source project that provides a robust, commercial-grade, and full-featured toolkit for the Transport Layer Security (TLS) and Secure Sockets Layer (SSL) protocols. It is also a general-purpose cryptography library.
+Abi: 8ad3bf8542c7ac39b58f951a09c16dcc543486e9c1ab45558d1721376b11c963
+Description: A compression library
 Status: install ok half-installed

@@ -9,6 +9,7 @@ class API {
 public:
     API(DatabaseHandler& dbHandler, const std::string& coversPath, const std::string& chunksPath);
     void run(int port);
+    std::string getPublicIP();
 
 private:
     DatabaseHandler& db;
@@ -42,7 +43,7 @@ private:
 
     bool validateRequest(const crow::request& req, std::string& userID);
 
-
+    
 
 
 
