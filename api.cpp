@@ -6,6 +6,8 @@
 #include <sstream>
 #include <nlohmann/json.hpp>
 #include <curl/curl.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
 using json = nlohmann::json;
 #include <filesystem>
 #include <regex>
@@ -13,7 +15,7 @@ namespace fs = std::filesystem;
 #include "jwt-cpp/jwt.h"
 
 const std::string SECRET_KEY = "carmen";
-
+#pragma comment(lib, "Ws2_32.lib")
 std::string generateJWT(const std::string& userID) {
     return jwt::create()
         .set_issuer("api_service")
@@ -291,7 +293,10 @@ crow::response API::handleManifestRequest(const crow::request& req, const std::s
         std::string manifestContent = buffer.str();
 
         // Construct base URL with authentication parameters
-        std::string baseUrl = "http://" + getPublicIP() + ":38080/media/" + media_id + "/chunk/";
+        //std::string domain = getPublicIP("ghoststream.duckdns.org");
+        std::string domain = "localhost";
+
+        std::string baseUrl = "http://" + domain + ":38080/media/" + media_id + "/chunk/";
 
         // Modified URL patterns to include auth params in initialization and media URLs
         auto replacePaths = [&manifestContent, &baseUrl](const std::string& attribute, const std::string& replacement) {
@@ -316,7 +321,7 @@ crow::response API::handleManifestRequest(const crow::request& req, const std::s
         // Update media segments
         //replacePaths("media", "/chunk-stream$RepresentationID$-$Number%05d$.m4s");
 
-        std::string baseVttUrl = "http://" + getPublicIP() + ":38080 / media / " + media_id + " / subtitles / ";
+        std::string baseVttUrl = "http://" + domain + ":38080 / media / " + media_id + " / subtitles / ";
 
         
 
@@ -499,8 +504,7 @@ crow::response API::addProfile(const crow::request& req) {
     }
 
     std::string profileID = x["profileID"].s();
-    std::string pictureID = x["pictureID"].s();
-    std::string token = x["token"].s();
+    int pictureID = x["pictureID"].i();
 
     crow::json::wvalue response;
     
@@ -631,32 +635,47 @@ crow::response API::getCoverImage(const crow::request& req, const std::string& i
     return res;
 }
 
-size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* userData) {
-    userData->append(static_cast<char*>(contents), size * nmemb);
-    return size * nmemb;
-}
 
-std::string API::getPublicIP() {
-    CURL* curl;
-    CURLcode res;
-    std::string publicIP; // Variable to store the IP address
 
-    curl = curl_easy_init(); // Initialize cURL
-    if (curl) {
-        curl_easy_setopt(curl, CURLOPT_URL, "https://api.ipify.org"); // Set the URL
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback); // Set callback function
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &publicIP); // Set data for the callback
-        res = curl_easy_perform(curl); // Perform the request
-        if (res != CURLE_OK) {
-            std::cerr << "cURL error: " << curl_easy_strerror(res) << std::endl;
-            curl_easy_cleanup(curl); // Clean up before returning
-            return ""; // Return an empty string on failure
+std::string API::getPublicIP(const std::string& domain) {
+    WSADATA wsaData;
+    int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (res != 0) {
+        std::cerr << "WSAStartup failed: " << res << std::endl;
+        return "";
+    }
+
+    struct addrinfo hints {}, * result = nullptr;
+    char ipStr[INET6_ADDRSTRLEN];
+
+    hints.ai_family = AF_UNSPEC; // IPv4 or IPv6
+    hints.ai_socktype = SOCK_STREAM;
+
+    res = getaddrinfo(domain.c_str(), nullptr, &hints, &result);
+    if (res != 0) {
+        std::cerr << "getaddrinfo failed: " << gai_strerrorA(res) << std::endl;
+        WSACleanup();
+        return "";
+    }
+
+    for (struct addrinfo* p = result; p != nullptr; p = p->ai_next) {
+        void* addr;
+        if (p->ai_family == AF_INET) { // IPv4
+            addr = &((struct sockaddr_in*)p->ai_addr)->sin_addr;
         }
-        curl_easy_cleanup(curl); // Clean up
+        else if (p->ai_family == AF_INET6) { // IPv6
+            addr = &((struct sockaddr_in6*)p->ai_addr)->sin6_addr;
+        }
+        else {
+            continue;
+        }
+        inet_ntop(p->ai_family, addr, ipStr, sizeof(ipStr));
+        freeaddrinfo(result);
+        WSACleanup();
+        return std::string(ipStr);
     }
-    else {
-        std::cerr << "Failed to initialize cURL." << std::endl;
-        return ""; // Return an empty string if cURL failed to initialize
-    }
-    return publicIP; // Return the public IP as a string
+
+    freeaddrinfo(result);
+    WSACleanup();
+    return "";
 }

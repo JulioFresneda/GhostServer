@@ -9,7 +9,7 @@ class API {
 public:
     API(DatabaseHandler& dbHandler, const std::string& coversPath, const std::string& chunksPath);
     void run(int port);
-    std::string getPublicIP();
+    std::string getPublicIP(const std::string& domain);
 
 private:
     DatabaseHandler& db;

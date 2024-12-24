@@ -406,6 +406,21 @@
             "title": "The Substance",
             "type": "movie",
             "year": "2024"
+        },
+        {
+            "ID": "aff6787124c7a19377eceacc65322647b204cabb",
+            "collection_id": "",
+            "description": "Taking refuge on Earth, when Sonic uses his incredible speed and accidentally knock out the power in part of the United States, he catches the attention of Dr. Robotnik and must stop him from using his unique power for world domin...",
+            "episode": "",
+            "genres": "[\"Action\", \"Adventure\", \"Comedy\"]",
+            "image_path": "",
+            "producer": "Jeff Fowler",
+            "rating": "6.5",
+            "resolution": "HD",
+            "season": "",
+            "title": "Sonic the Hedgehog",
+            "type": "movie",
+            "year": "2020"
         }
     ]
 }

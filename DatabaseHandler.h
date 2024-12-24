@@ -10,7 +10,7 @@ public:
     DatabaseHandler(const std::string& dbPath);
     ~DatabaseHandler();
 
-    bool addProfile(const std::string& userID, const std::string& profileID, const std::string& pictureID);
+    bool addProfile(const std::string& userID, const std::string& profileID, int pictureID);
     bool deleteProfile(const std::string& userID, const std::string& profileID);
     void getProfiles(const std::string& userID, std::vector<std::pair<std::string, std::string>>& profiles);
 

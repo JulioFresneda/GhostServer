@@ -78,7 +78,7 @@ int main() {
         std::string chunksPath = loadChunksPath(configFilePath);
 
         API api(dbHandler, coversPath, chunksPath);
-        std::cout << "Public IP: " << api.getPublicIP() << std::endl;
+        std::cout << "Public IP: " << api.getPublicIP("ghoststream.duckdns.org") << std::endl;
         // Run the API server on a specified port
         api.run(38080);
 

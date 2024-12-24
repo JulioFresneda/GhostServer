@@ -100,7 +100,7 @@ void DatabaseHandler::getProfiles(const std::string& userID, std::vector<std::pa
 
 
 
-bool DatabaseHandler::addProfile(const std::string& userID, const std::string& profileID, const std::string& pictureID) {
+bool DatabaseHandler::addProfile(const std::string& userID, const std::string& profileID, int pictureID) {
     try {
         // Check if the user exists before adding a profile
         CppSQLite3Statement userCheckStmt = db.compileStatement("SELECT COUNT(*) FROM User WHERE ID = ?;");
@@ -116,7 +116,7 @@ bool DatabaseHandler::addProfile(const std::string& userID, const std::string& p
         CppSQLite3Statement stmt = db.compileStatement("INSERT INTO Profile (profileID, userID, pictureID) VALUES (?, ?, ?);");
         stmt.bind(1, profileID.c_str());
         stmt.bind(2, userID.c_str());
-        stmt.bind(3, pictureID.c_str());
+        stmt.bind(3, pictureID);
         stmt.execDML();
 
         return true;
