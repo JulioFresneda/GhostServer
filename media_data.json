@@ -421,6 +421,21 @@
             "title": "Sonic the Hedgehog",
             "type": "movie",
             "year": "2020"
+        },
+        {
+            "ID": "fd835cad1758cfd076bf5f3b7f62f85423ebb993",
+            "collection_id": "",
+            "description": "There's a mystery afoot in Gotham City, and Batman must go toe-to-toe with a mysterious vigilante, who goes by the name of Red Hood. Subsequently, old wounds reopen and old, once buried memories come into the light.",
+            "episode": "",
+            "genres": "[\"Animation\", \"Action\", \"Crime\", \"Drama\", \"Mystery\", \"Sci-Fi\", \"Thriller\"]",
+            "image_path": "",
+            "producer": "Brandon Vietti",
+            "rating": "8.1",
+            "resolution": "Full HD",
+            "season": "",
+            "title": "Batman: Under the Red Hood",
+            "type": "movie",
+            "year": "2010"
         }
     ]
 }

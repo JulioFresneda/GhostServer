@@ -21,9 +21,6 @@
     <ClCompile Include="DatabaseHandler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="test_db.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="CppSQLite3.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
