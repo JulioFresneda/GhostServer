@@ -14,6 +14,7 @@ using json = nlohmann::json;
 namespace fs = std::filesystem;     
 #include "jwt-cpp/jwt.h"
 
+
 const std::string SECRET_KEY = "carmen";
 #pragma comment(lib, "Ws2_32.lib")
 std::string generateJWT(const std::string& userID) {
