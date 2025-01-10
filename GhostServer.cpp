@@ -1,4 +1,4 @@
-#include <iostream>
+﻿#include <iostream>
 #include <fstream>
 #include <string>
 #include "DatabaseHandler.h"
@@ -7,7 +7,7 @@
 
 using json = nlohmann::json;
 
-std::string loadDatabasePath(const std::string& configFilePath) {
+void loadPaths(const std::string& configFilePath, std::string& databasePath, std::string& coversPath, std::string& chunksPath, std::string& duckdnsDomain) {
     std::ifstream configFile(configFilePath);
     if (!configFile.is_open()) {
         throw std::runtime_error("Could not open configuration file: " + configFilePath);
@@ -17,54 +17,56 @@ std::string loadDatabasePath(const std::string& configFilePath) {
     configFile >> configJson; // Read JSON file into configJson object
 
     if (configJson.contains("databasePath") && configJson["databasePath"].is_string()) {
-        return configJson["databasePath"].get<std::string>();
+        databasePath = configJson["databasePath"].get<std::string>();
     }
     else {
         throw std::runtime_error("Invalid configuration: 'databasePath' not found or incorrect type.");
     }
-}
-
-std::string loadCoversPath(const std::string& configFilePath) {
-    std::ifstream configFile(configFilePath);
-    if (!configFile.is_open()) {
-        throw std::runtime_error("Could not open configuration file: " + configFilePath);
-    }
-
-    json configJson;
-    configFile >> configJson; // Read JSON file into configJson object
-
     if (configJson.contains("coversPath") && configJson["coversPath"].is_string()) {
-        return configJson["coversPath"].get<std::string>();
+        coversPath = configJson["coversPath"].get<std::string>();
     }
     else {
         throw std::runtime_error("Invalid configuration: 'coversPath' not found or incorrect type.");
     }
-}
-
-std::string loadChunksPath(const std::string& configFilePath) {
-    std::ifstream configFile(configFilePath);
-    if (!configFile.is_open()) {
-        throw std::runtime_error("Could not open configuration file: " + configFilePath);
-    }
-
-    json configJson;
-    configFile >> configJson; // Read JSON file into configJson object
-
     if (configJson.contains("chunksPath") && configJson["chunksPath"].is_string()) {
-        return configJson["chunksPath"].get<std::string>();
+        chunksPath = configJson["chunksPath"].get<std::string>();
     }
     else {
-        throw std::runtime_error("Invalid configuration: 'coversPath' not found or incorrect type.");
+        throw std::runtime_error("Invalid configuration: 'chunksPath' not found or incorrect type.");
+    }
+    if (configJson.contains("duckdnsDomain") && configJson["duckdnsDomain"].is_string()) {
+        duckdnsDomain = configJson["duckdnsDomain"].get<std::string>();
+    }
+    else {
+        throw std::runtime_error("Invalid configuration: 'duckdnsDomain' not found or incorrect type.");
     }
 }
+
 
 int main() {
     try {
+
+        std::cout << R"(
+            
+            ,---.  .           .  .---.                      
+            |  -'  |-. ,-. ,-. |- \___  ,-. ,-. .  , ,-. ,-. 
+            |  ,-' | | | | `-. |      \ |-' |   | /  |-' |   
+            `---|  ' ' `-' `-' `' `---' `-' '   `'   `-' '   
+             ,-.|                                            
+             `-+'                                            
+                                           
+        )" << std::endl;
+
         // Specify the path to your configuration JSON file
         std::string configFilePath = "config.json"; // Adjust the path as needed
 
         // Load the database path from the config file
-        std::string databasePath = loadDatabasePath(configFilePath);
+        std::string databasePath; 
+        std::string coversPath;
+        std::string chunksPath;
+        std::string duckdnsDomain; 
+        
+        loadPaths(configFilePath, databasePath, coversPath, chunksPath, duckdnsDomain);
         std::cout << "Database path loaded from config: " << databasePath << std::endl;
 
         // Create and initialize the DatabaseHandler with the database path
@@ -74,11 +76,10 @@ int main() {
         std::cout << "Server starting..." << std::endl;
 
         // Initialize the API with the database handler
-        std::string coversPath = loadCoversPath(configFilePath);
-        std::string chunksPath = loadChunksPath(configFilePath);
+        
 
         API api(dbHandler, coversPath, chunksPath);
-        std::cout << "Public IP: " << api.getPublicIP("ghoststream.duckdns.org") << std::endl;
+        std::cout << "Public IP: " << api.getPublicIP(duckdnsDomain) << std::endl;
         // Run the API server on a specified port
         api.run(38080);
 

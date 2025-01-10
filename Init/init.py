@@ -97,3 +97,17 @@ destination = os.path.join("..", "ghost.db")
 
 # Move and replace the file in the parent folder
 shutil.move(source, destination)
+
+
+directories = ["GhostChunks", "GhostCovers"]
+    
+for directory in directories:
+    # Full path of the directory
+    dir_path = os.path.join('./', directory)
+        
+    # Create the directory if it doesn't exist
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+        print(f"Directory created: {dir_path}")
+    else:
+        print(f"Directory already exists: {dir_path}")
