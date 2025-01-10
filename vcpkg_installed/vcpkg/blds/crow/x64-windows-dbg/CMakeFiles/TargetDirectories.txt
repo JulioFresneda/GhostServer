@@ -1,8 +1,0 @@
-C:/Users/julio/source/repos/GhostStreaming/GhostServer/vcpkg_installed/vcpkg/blds/crow/x64-windows-dbg/CMakeFiles/uninstall.dir
-C:/Users/julio/source/repos/GhostStreaming/GhostServer/vcpkg_installed/vcpkg/blds/crow/x64-windows-dbg/CMakeFiles/package.dir
-C:/Users/julio/source/repos/GhostStreaming/GhostServer/vcpkg_installed/vcpkg/blds/crow/x64-windows-dbg/CMakeFiles/package_source.dir
-C:/Users/julio/source/repos/GhostStreaming/GhostServer/vcpkg_installed/vcpkg/blds/crow/x64-windows-dbg/CMakeFiles/edit_cache.dir
-C:/Users/julio/source/repos/GhostStreaming/GhostServer/vcpkg_installed/vcpkg/blds/crow/x64-windows-dbg/CMakeFiles/rebuild_cache.dir
-C:/Users/julio/source/repos/GhostStreaming/GhostServer/vcpkg_installed/vcpkg/blds/crow/x64-windows-dbg/CMakeFiles/list_install_components.dir
-C:/Users/julio/source/repos/GhostStreaming/GhostServer/vcpkg_installed/vcpkg/blds/crow/x64-windows-dbg/CMakeFiles/install.dir
-C:/Users/julio/source/repos/GhostStreaming/GhostServer/vcpkg_installed/vcpkg/blds/crow/x64-windows-dbg/CMakeFiles/install/local.dir
