@@ -55,3 +55,25 @@ Run the executable. It is stored in the /bin/ folder. The server uses the port 3
 As long as this executable is running, the server will be available to the clients.
 
 I think that's all. If you have any questions, feel free to ask to my email.
+
+
+## Add your absolutely not pirated media
+I (claude really) made a cute GUI that adds the media to the database. This are the steps:
+1. IMDb info and cover is downloaded
+2. Media info is added to the database
+3. Media file is splitted into streameable chunks
+
+So, tecnically, we don't "add" any media. We just copy it in a chunky format and download some metadata. 
+
+Important, as requisite, you will need an api key from http://www.omdbapi.com/. This key is used to download the IMDb info, and can be setted in the GUI.
+
+In the GUI, you will see that there are three types of media: Standalone movies (Titanic, The Prestige), movies from a collection (Harry Potter, Star Wars) and TV Shows (Breaking Bad, Game of Thrones).
+Each type has its own way to be added.
+
+For standalone movies, you just need the IMDb URL of the movie. Just that.
+
+For movies from a collection, you need the IMDb URL of each of the movies in the collection. But, there is no IMDb page for the collection itself. So, you will have to fill some custom data.
+
+For TV Shows, you need the IMDb URL of the show. Optionally, you can add the IMDb URL of the episodes.
+
+That's it. The GUI will do the rest. Just press the button and wait a bit!
