@@ -2,13 +2,13 @@ import sqlite3
 import argparse
 
 
-def add_user(name, token):
+def add_user(name, password):
     """
     Adds a new user to the User table in the database.
 
     Args:
         name (str): Username to add to the database
-        token (str): User's authentication token
+        password (str): User's authentication password
 
     Returns:
         None
@@ -20,13 +20,13 @@ def add_user(name, token):
 
         # Insert the new user into the User table
         cursor.execute('''
-            INSERT INTO User (ID, token)
+            INSERT INTO User (ID, password)
             VALUES (?, ?)
-        ''', (name, token))
+        ''', (name, password))
 
         # Commit the transaction
         conn.commit()
-        print(f"User '{name}' added successfully with token: {token}")
+        print(f"User '{name}' added successfully with password: {password}")
 
     except sqlite3.IntegrityError as e:
         print(f"Error: {e}. User '{name}' may already exist.")
@@ -47,13 +47,13 @@ def main():
 
     # Add required arguments
     parser.add_argument('--user', required=True, help="Username to add to the database")
-    parser.add_argument('--token', required=True, help="Authentication token for the user")
+    parser.add_argument('--password', required=True, help="Authentication password for the user")
 
     # Parse arguments
     args = parser.parse_args()
 
     # Add the user
-    add_user(args.user, args.token)
+    add_user(args.user, args.password)
 
 
 if __name__ == "__main__":

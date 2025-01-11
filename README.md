@@ -51,7 +51,7 @@ The token can be anything, you will have to decide one, and share it with the us
 That's it.
 
 ### Step 4: Run the server
-Run the executable. It is stored in the /bin/ folder. The server uses the port 38080, keep that in mind. Also, remember to update the *config.json* paths.
+Run the executable. It is stored in the /Build/ folder. The server uses the port 38080, keep that in mind. Also, remember to update the *config.json* paths.
 As long as this executable is running, the server will be available to the clients.
 
 I think that's all. If you have any questions, feel free to ask to my email.
