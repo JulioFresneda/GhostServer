@@ -21,18 +21,18 @@ DatabaseHandler::~DatabaseHandler() {
     db.close();
 }
 
-std::string DatabaseHandler::getToken(const std::string& userID) {
+std::string DatabaseHandler::getPassword(const std::string& userID) {
     try {
         // Query all profiles associated with the given userID
-        CppSQLite3Statement stmt = db.compileStatement("SELECT token FROM User WHERE ID = ?;");
+        CppSQLite3Statement stmt = db.compileStatement("SELECT password FROM User WHERE ID = ?;");
         stmt.bind(1, userID.c_str());
         CppSQLite3Query query = stmt.execQuery();
 
         if (!query.eof()) {
-            return query.getStringField("token");
+            return query.getStringField("password");
         }
         else {
-            throw std::runtime_error("Token not found with user ID: " + userID);
+            throw std::runtime_error("Password not found with user ID: " + userID);
         }
     }
     catch (const CppSQLite3Exception& e) {
@@ -41,22 +41,22 @@ std::string DatabaseHandler::getToken(const std::string& userID) {
 }
 
 std::vector<std::pair<std::string, std::string>> DatabaseHandler::getAllUserPasswords() {
-    std::vector<std::pair<std::string, std::string>> tokens;
+    std::vector<std::pair<std::string, std::string>> passwords;
 
     try {
-        CppSQLite3Query query = db.execQuery("SELECT ID, token FROM User;");
+        CppSQLite3Query query = db.execQuery("SELECT ID, password FROM User;");
         while (!query.eof()) {
             std::string userID = query.getStringField("ID");
-            std::string token = query.getStringField("token");
-            tokens.emplace_back(userID, token);
+            std::string password = query.getStringField("password");
+            passwords.emplace_back(userID, password);
             query.nextRow();
         }
     }
     catch (const CppSQLite3Exception& e) {
-        std::cerr << "Failed to load user tokens: " << e.errorMessage() << std::endl;
+        std::cerr << "Failed to load user passwords: " << e.errorMessage() << std::endl;
     }
 
-    return tokens;
+    return passwords;
 }
 
 

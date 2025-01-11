@@ -161,7 +161,7 @@ crow::response API::login(const crow::request& req) {
     std::string password = bodyJson["password"].s();
 
     // Validate the user credentials using your database
-    if (checkToken(userID, password)) { // Replace with your actual validation logic
+    if (checkPassword(userID, password)) { // Replace with your actual validation logic
         return crow::response(401, "Invalid userID or password");
     }
 
@@ -590,7 +590,7 @@ crow::response API::listProfiles(const crow::request& req) {
 }
 
 
-bool API::checkToken(const std::string& token, const std::string& userID) {
+bool API::checkPassword(const std::string& token, const std::string& userID) {
     auto it = passwords.find(userID);
     return (it != passwords.end() && it->second == token);
 }

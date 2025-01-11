@@ -14,7 +14,7 @@ public:
     bool deleteProfile(const std::string& userID, const std::string& profileID);
     void getProfiles(const std::string& userID, std::vector<std::pair<std::string, std::string>>& profiles);
 
-    std::string getToken(const std::string& userID);
+    std::string getPassword(const std::string& userID);
     std::vector<std::pair<std::string, std::string>> getAllUserPasswords();
 
 

@@ -50,7 +50,7 @@ def create_tables():
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS User (
         ID TEXT PRIMARY KEY,
-        token TEXT NOT NULL
+        password TEXT NOT NULL
             )
     ''')
 

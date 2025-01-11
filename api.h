@@ -38,7 +38,7 @@ private:
     std::unordered_map<std::string, std::string> passwords;
 
     crow::response login(const crow::request& req);
-    bool checkToken(const std::string& tokenProvided, const std::string& userID);
+    bool checkPassword(const std::string& tokenProvided, const std::string& userID);
     void loasPasswords();
 
     bool validateRequest(const crow::request& req, std::string& userID);
