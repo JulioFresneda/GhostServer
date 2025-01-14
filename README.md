@@ -77,3 +77,9 @@ For movies from a collection, you need the IMDb URL of each of the movies in the
 For TV Shows, you need the IMDb URL of the show. Optionally, you can add the IMDb URL of the episodes.
 
 That's it. The GUI will do the rest. Just press the button and wait a bit!
+
+
+## TODO and improvements
+- Update the exposed IP automatically if DDNS changes it
+- For now, only english and spanish subs are available. Add more languages
+- Better add-media script maybe

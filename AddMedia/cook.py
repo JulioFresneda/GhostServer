@@ -1,6 +1,7 @@
 import hashlib
 import os
 import json
+import re
 from time import sleep
 
 import requests
@@ -82,36 +83,38 @@ def fetch_metadata(imdb_id, api_key, base_url, folder_path = None, collection_ti
         return None
 
 # Function to create Collection JSON
-def create_collection_json(folder_name, media_dir, metadata, episode_files):
+def create_collection_json(folder_name, media_dir, metadata, number_episodes, type):
     collection_json = {
-        "ID": folder_name,
+        "ID": folder_name.name,
         "collection_title": metadata.get("Title"),
         "collection_description": metadata.get("Plot"),
         "collection_rating": float(metadata.get("imdbRating", 0)),
         "collection_type": "serie" if metadata.get("Type") == "series" else "movies",
         "genres": metadata.get("Genre", "").split(", "),
         "producer": metadata.get("Director"),
-        "numberOfEpisodes": len(episode_files),
-        "image_path": f"./{media_dir}/{folder_name}/{folder_name}.png"
+        "numberOfEpisodes": number_episodes,
+        "image_path": f"./{media_dir}/{folder_name}/{folder_name}.png",
+        "type": type
     }
     return collection_json
 
 
 # Function to create Episodes JSON
-def create_episodes_json(episodes_metadata, episode_files, collection_title):
+def create_episodes_json(episodes_metadata, collection_metadata):
     episodes = []
-    for metadata, file in zip(episodes_metadata, sorted(episode_files)):
+    for metadata in episodes_metadata:
+        file = metadata["filepath"]
         resolution = get_resolution_category(file)
         episode_json = {
-            "ID": hash_id(f"{collection_title}_{metadata.get('Title')}"),
-            "title": f"{metadata.get('Title')}",
-            "year": int(metadata.get("Year").split("-")[0]),
-            "description": metadata.get("Plot"),
-            "producer": metadata.get("Director"),
-            "rating": float(metadata.get("imdbRating", 0)),
-            "genres": metadata.get("Genre", "").split(", "),
-            "season": metadata.get("Season", ""), # Calculate season based on index
-            "episode": metadata.get("Episode", ""),
+            "ID": hash_id(f"{collection_metadata.get('Title')}_{metadata.get('title')}"),
+            "title": f"{metadata.get('title')}",
+            "year": int(collection_metadata.get("Year")[:4]),
+            "description": collection_metadata.get("Plot"),
+            "producer": collection_metadata.get("Director"),
+            "rating": float(collection_metadata.get("imdbRating", 0)),
+            "genres": collection_metadata.get("Genre", "").split(", "),
+            "season": metadata.get("season", ""), # Calculate season based on index
+            "episode": metadata.get("episode", ""),
             "type":"episode",
             "resolution": resolution,
             "media_filepath": str(Path(os.getcwd()) / file)
@@ -145,7 +148,7 @@ def process_media_directory(covers_folder, media_folder, media_info, api_key, ba
                         "episode": None,
                         "type": "movie",
                         "resolution": resolution,
-                        "media_filepath": str(media_info["filepath"])
+                        "media_filepath": str(media_info["filepath"].absolute().as_posix())
                     }
                     return movie_json, None
 
@@ -155,20 +158,25 @@ def process_media_directory(covers_folder, media_folder, media_info, api_key, ba
             imdb_id = imdb_url.split("/")[-1] if imdb_url[-1] != '/' else imdb_url.split("/")[-2]
             metadata = fetch_metadata(imdb_id, api_key, base_url, covers_folder)
 
-
-            media_files = sorted(media_info["filepath"].glob("*.*"))
-
-
-            collection_json = create_collection_json(media_info["filepath"], media_folder, metadata, media_files)
+            seasons = sorted(
+                f for f in media_info["filepath"].absolute().glob("*") if f.is_dir()
+            )
 
             episodes_metadata = []
-            for episode_url in media_info['episodes_url']:
-                imdb_id = episode_url.split("/")[-1] if episode_url[-1] != '/' else episode_url.split("/")[-2]
-                episodes_metadata.append(fetch_metadata(imdb_id, api_key, base_url, covers_folder, metadata.get('Title')))
+            for season in seasons:
+                episodes = sorted(season.absolute().glob("*.*"))
+                counter = 1
+                for episode in episodes:
+                    episodes_metadata.append({
+                        "title": re.sub(r"\[.*?\]", "", episode.name).strip().split(".")[0],
+                        "season": season.name[1:],
+                        "episode": str(counter),
+                        "filepath": episode
+                    })
+                    counter += 1
 
-            episodes_json = create_episodes_json(episodes_metadata,
-                                                 [m for m in media_files if '.json' not in m.suffix],
-                                                 metadata.get("Title"))
+            collection_json = create_collection_json(media_info["filepath"], media_folder, metadata, len(episodes_metadata), media_info["type"])
+            episodes_json = create_episodes_json(episodes_metadata, metadata)
 
             return collection_json, episodes_json
 

@@ -61,8 +61,8 @@ bool API::validateRequest(const crow::request& req, std::string& userID) {
     return validateJWT(token, userID);
 }
 
-API::API(DatabaseHandler& dbHandler, const std::string& coversPath, const std::string& chunksPath)
-    : db(dbHandler), coversPath(coversPath), chunksPath(chunksPath) {
+API::API(DatabaseHandler& dbHandler, const std::string& coversPath, const std::string& chunksPath, const std::string& domain)
+    : db(dbHandler), coversPath(coversPath), chunksPath(chunksPath), domain(domain) {
     loasPasswords();
 }
 
@@ -294,10 +294,10 @@ crow::response API::handleManifestRequest(const crow::request& req, const std::s
         std::string manifestContent = buffer.str();
 
         // Construct base URL with authentication parameters
-        //std::string domain = getPublicIP("ghoststream.duckdns.org");
-        std::string domain = "localhost";
+        std::string ip = getPublicIP(domain);
+        
 
-        std::string baseUrl = "http://" + domain + ":38080/media/" + media_id + "/chunk/";
+        std::string baseUrl = "http://" + ip + ":38080/media/" + media_id + "/chunk/";
 
         // Modified URL patterns to include auth params in initialization and media URLs
         auto replacePaths = [&manifestContent, &baseUrl](const std::string& attribute, const std::string& replacement) {
@@ -322,7 +322,7 @@ crow::response API::handleManifestRequest(const crow::request& req, const std::s
         // Update media segments
         //replacePaths("media", "/chunk-stream$RepresentationID$-$Number%05d$.m4s");
 
-        std::string baseVttUrl = "http://" + domain + ":38080 / media / " + media_id + " / subtitles / ";
+        std::string baseVttUrl = "http://" + ip + ":38080 / media / " + media_id + " / subtitles / ";
 
         
 
@@ -596,8 +596,22 @@ bool API::checkPassword(const std::string& token, const std::string& userID) {
 }
 
 
-crow::response API::getCoverImage(const crow::request& req, const std::string& id) {
+crow::response API::getCoverImage(const crow::request& req, const std::string& id_raw) {
+
+    std::string id = id_raw;
+
+    // Replace all occurrences of "%20" with " "
+    std::string toReplace = "%20";
+    std::string replacement = " ";
+    size_t pos = 0;
+
+    while ((pos = id.find(toReplace, pos)) != std::string::npos) {
+        id.replace(pos, toReplace.length(), replacement);
+        pos += replacement.length(); // Move past the replacement
+    }
+
     std::string userID;
+    
 
     if (!validateRequest(req, userID)) {
         return crow::response(401, "Invalid authentication");
@@ -656,7 +670,7 @@ std::string API::getPublicIP(const std::string& domain) {
     if (res != 0) {
         std::cerr << "getaddrinfo failed: " << gai_strerrorA(res) << std::endl;
         WSACleanup();
-        return "";
+        return "localhost";
     }
 
     for (struct addrinfo* p = result; p != nullptr; p = p->ai_next) {
@@ -678,5 +692,5 @@ std::string API::getPublicIP(const std::string& domain) {
 
     freeaddrinfo(result);
     WSACleanup();
-    return "";
+    return "localhost";
 }

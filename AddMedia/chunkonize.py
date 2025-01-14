@@ -24,10 +24,9 @@ def get_recommended_bitrate(width, height):
 
 
 def prepare_media_for_streaming(media_file_path, output_folder, media_id):
+    output_folder = os.path.normpath(output_folder)
     os.makedirs(output_folder, exist_ok=True)
-    media_folder = os.path.join(output_folder, media_id)
-    os.makedirs(media_folder, exist_ok=True)
-    mpd_file_path = os.path.join(media_folder, f"{media_id}.mpd")
+    mpd_file_path = os.path.join(output_folder, f"{media_id}.mpd")
 
     # Probe for streams info
     probe_cmd = [
@@ -43,17 +42,28 @@ def prepare_media_for_streaming(media_file_path, output_folder, media_id):
 
     info = json.loads(probe_result.stdout)
 
-    # Find video stream and get resolution
-    video_stream = next((s for s in info["streams"] if s["codec_type"] == "video"), None)
-    if not video_stream:
-        raise RuntimeError("No video stream found")
 
-    width = int(video_stream.get("width", 1920))
-    height = int(video_stream.get("height", 1080))
+    #original_bitrate = 0
+    #for stream in info["streams"]:
+    #    if stream["codec_type"] == "video":
+    #        original_bitrate =
+    #if original_bitrate > 0:
+    #    print(f"Original bitrate: {original_bitrate / 1000} kbps")
+    #else:
+    #    video_stream = next((s for s in info["streams"] if s["codec_type"] == "video"), None)
+    #    if not video_stream:
+    #        raise RuntimeError("No video stream found")
 
-    # Calculate appropriate bitrate
-    video_bitrate = get_recommended_bitrate(width, height)
-    print(f"Source resolution: {width}x{height}, Selected bitrate: {video_bitrate}")
+    #    width = int(video_stream.get("width", 1920))
+    #    height = int(video_stream.get("height", 1080))
+    #    original_bitrate = get_recommended_bitrate(width, height)
+    #    print(f"Source resolution: {width}x{height}, Selected bitrate: {original_bitrate}")
+
+
+
+
+
+
 
     # Build the basic FFmpeg command
     cmd = [
@@ -62,8 +72,8 @@ def prepare_media_for_streaming(media_file_path, output_folder, media_id):
 
         # Video stream - maintaining source resolution
         "-map", "0:v:0",
-        "-c:v", "libx264",
-        "-b:v:0", video_bitrate,
+        "-c:v", "libx265",
+        "-crf", "28", "-preset", "medium"
     ]
 
     # Count audio streams and add them to command
@@ -104,61 +114,39 @@ def prepare_media_for_streaming(media_file_path, output_folder, media_id):
 
     # Run FFmpeg
     try:
-        subprocess.run(cmd, check=True, cwd=media_folder)
-        print(f"Streaming files prepared successfully in {media_folder}")
+        subprocess.run(cmd, check=True, cwd=output_folder)
+        print(f"Streaming files prepared successfully in {output_folder}")
     except subprocess.CalledProcessError as e:
         print(f"Error preparing streaming files for {media_id}: {e}")
 
 
 
 
-def chunkonize(json_folder_path, output_folder):
-    # Iterate over each JSON file in the folder
-    for json_file in Path(json_folder_path).glob("*.json"):
-        with open(json_file, "r") as file:
-            try:
-                # Load metadata from JSON
-                metadata = json.load(file)
+def chunkonize(output_folder, collection, items):
 
-                # Get media file path and media ID from the metadata
-                media_file_path = metadata.get("media_filepath")
-                media_id = metadata.get("ID")
+    # Get media file path and media ID from the metadata
 
-                if not media_file_path or not media_id:
-                    print(f"Skipping {json_file} due to missing media file path or media ID.")
-                    continue
 
-                # Call the function to prepare media for streaming
-                if not (Path(output_folder) / media_id).exists():
-                    prepare_media_for_streaming(media_file_path, output_folder, media_id)
-                extract_subtitles_to_vtt(media_file_path, os.path.join(output_folder, media_id, "subtitles"))
+    if collection["type"] == "movie":
+        media_file_path = collection.get("media_filepath")
+        media_id = collection.get("ID")
+        #prepare_media_for_streaming(media_file_path, os.path.join(output_folder, media_id), media_id)
+        extract_subtitles_to_vtt(media_file_path, os.path.join(output_folder, media_id, "subtitles"))
 
-            except json.JSONDecodeError:
-                print(f"Error decoding JSON in file {json_file}. Skipping.")
-            except Exception as e:
-                print(f"Unexpected error with {json_file}: {e}")
+    elif collection["type"] == "serie":
+        for episode in items:
+            media_file_path = episode.get("media_filepath")
+            media_id = episode.get("ID")
+            prepare_media_for_streaming(media_file_path, os.path.join(output_folder, media_id), media_id)
+            extract_subtitles_to_vtt(media_file_path, os.path.join(output_folder, media_id, "subtitles"))
 
-    for folder in Path(json_folder_path).iterdir():
-        if folder.is_dir():
-            with open(folder / 'episodes.json', "r") as file:
-                try:
-                    # Load metadata from JSON
-                    episodes_metadata = json.load(file)
 
-                    # Get media file path and media ID from the metadata
-                    for metadata in episodes_metadata:
-                        media_file_path = metadata.get("media_filepath")
-                        media_id = metadata.get("ID")
+    # Get media file path and media ID from the metadata
+    for metadata in items:
+        media_file_path = metadata.get("media_filepath")
+        media_id = metadata.get("ID")
 
-                        if not media_file_path or not media_id:
-                            print(f"Skipping {json_file} due to missing media file path or media ID.")
-                            continue
 
-                        # Call the function to prepare media for streaming
-                        if not (Path(output_folder) / media_id).exists():
-                            prepare_media_for_streaming(media_file_path, output_folder, media_id)
+        prepare_media_for_streaming(media_file_path, output_folder, media_id)
 
-                except json.JSONDecodeError:
-                    print(f"Error decoding JSON in file {json_file}. Skipping.")
-                except Exception as e:
-                    print(f"Unexpected error with {json_file}: {e}")
+

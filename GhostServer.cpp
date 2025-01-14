@@ -78,7 +78,7 @@ int main() {
         // Initialize the API with the database handler
         
 
-        API api(dbHandler, coversPath, chunksPath);
+        API api(dbHandler, coversPath, chunksPath, duckdnsDomain);
         std::cout << "Public IP: " << api.getPublicIP(duckdnsDomain) << std::endl;
         // Run the API server on a specified port
         api.run(38080);

@@ -19,10 +19,10 @@ class MediaProcessingGUI:
 
         # Default values
         self.MEDIA_DIR = './media'
-        self.COVERS_DIR = "./covers"
-        self.CHUNKS_DIR = "./chunks"
+        self.COVERS_DIR = "G://GhostCovers"
+        self.CHUNKS_DIR = "G://GhostChunks"
         self.API_KEY = "3dec1c49"
-        self.DATABASE_PATH = "./ghost.db"
+        self.DATABASE_PATH = "G://ghost.db"
 
         # Create main container
         self.main_container = ttk.Frame(self.root, padding="10")
@@ -369,7 +369,7 @@ class MediaProcessingGUI:
             self.root.update()
 
             # Create streaming files
-            chunkonize(self.media_dir_var.get(), self.chunks_dir_var.get())
+            chunkonize(os.path.join(self.chunks_dir_var.get(), self.chunks_dir_var.get()), collection, items)
 
             self.status_var.set("Processing complete!")
             self.progress['value'] = 100
