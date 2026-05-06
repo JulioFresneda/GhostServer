@@ -1,0 +1,7 @@
+{
+  "databasePath": "../ghost.db",
+  "coversPath": "../Init/GhostCovers",
+  "chunksPath": "../Init/GhostChunks",
+  "domain": "myghost.stream",
+  "domainToken": "YOUR_CLOUDFLARE_TOKEN_HERE"
+}

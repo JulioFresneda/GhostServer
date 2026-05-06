@@ -6,8 +6,16 @@
 #include <sstream>
 #include <nlohmann/json.hpp>
 #include <curl/curl.h>
+#ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#pragma comment(lib, "Ws2_32.lib")
+#else
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <netdb.h>
+#endif
 using json = nlohmann::json;
 #include <filesystem>
 #include <regex>
@@ -16,7 +24,7 @@ namespace fs = std::filesystem;
 
 
 const std::string SECRET_KEY = "carmen";
-#pragma comment(lib, "Ws2_32.lib")
+
 std::string generateJWT(const std::string& userID) {
     return jwt::create()
         .set_issuer("api_service")
@@ -61,8 +69,8 @@ bool API::validateRequest(const crow::request& req, std::string& userID) {
     return validateJWT(token, userID);
 }
 
-API::API(DatabaseHandler& dbHandler, const std::string& coversPath, const std::string& chunksPath, const std::string& domain)
-    : db(dbHandler), coversPath(coversPath), chunksPath(chunksPath), domain(domain) {
+API::API(DatabaseHandler& dbHandler, const std::string& coversPath, const std::string& chunksPath, const std::string& domain, const std::string& domainToken)
+    : db(dbHandler), coversPath(coversPath), chunksPath(chunksPath), domain(domain), domainToken(domainToken) {
     loasPasswords();
 }
 
@@ -76,6 +84,10 @@ void API::loasPasswords() {
 
 void API::run(int port) {
     crow::SimpleApp app;
+
+    CROW_ROUTE(app, "/ping").methods(crow::HTTPMethod::GET)([](const crow::request& req) {
+        return crow::response("Scary hug for you");
+    });
 
     CROW_ROUTE(app, "/auth/login").methods(crow::HTTPMethod::POST)([this](const crow::request& req) {
         return login(req);
@@ -139,7 +151,7 @@ void API::run(int port) {
     // Route to serve the pre-generated user metadata JSON file
     CROW_ROUTE(app, "/download/media_metadata").methods(crow::HTTPMethod::POST)
         ([this](const crow::request& req) {
-        
+
         return downloadMediaMetadata(req);
             });
 
@@ -160,8 +172,9 @@ crow::response API::login(const crow::request& req) {
     std::string userID = bodyJson["userID"].s();
     std::string password = bodyJson["password"].s();
 
-    // Validate the user credentials using your database
-    if (checkPassword(userID, password)) { // Replace with your actual validation logic
+    // Validate the user credentials using your database.
+    // checkPassword signature is (token, userID), so we pass (password, userID) and negate the check.
+    if (checkPassword(password, userID)) {
         return crow::response(401, "Invalid userID or password");
     }
 
@@ -178,13 +191,13 @@ crow::response API::login(const crow::request& req) {
 // In api.cpp, update handleManifestRequest:
 
 crow::response API::downloadMediaMetadata(const crow::request& req) {
-    
+
     std::string userID;
 
     if (!validateRequest(req, userID)) {
         return crow::response(401, "Invalid authentication");
     }
-    
+
     auto x = crow::json::load(req.body);
     if (!x) {
         return crow::response(400, "Invalid JSON");
@@ -192,7 +205,7 @@ crow::response API::downloadMediaMetadata(const crow::request& req) {
 
     std::string profileID = x["profileID"].s();
 
-    
+
     // Generate user metadata JSON if needed
     db.generateMediaMetadataJson(userID, profileID);
 
@@ -294,10 +307,8 @@ crow::response API::handleManifestRequest(const crow::request& req, const std::s
         std::string manifestContent = buffer.str();
 
         // Construct base URL with authentication parameters
-        std::string ip = getPublicIP(domain);
-        
-
-        std::string baseUrl = "http://" + ip + ":38080/media/" + media_id + "/chunk/";
+        // Use the domain directly so traffic routes securely through Cloudflare!
+        std::string baseUrl = "https://" + domain + "/media/" + media_id + "/chunk/";
 
         // Modified URL patterns to include auth params in initialization and media URLs
         auto replacePaths = [&manifestContent, &baseUrl](const std::string& attribute, const std::string& replacement) {
@@ -322,9 +333,9 @@ crow::response API::handleManifestRequest(const crow::request& req, const std::s
         // Update media segments
         //replacePaths("media", "/chunk-stream$RepresentationID$-$Number%05d$.m4s");
 
-        std::string baseVttUrl = "http://" + ip + ":38080 / media / " + media_id + " / subtitles / ";
+        std::string baseVttUrl = "https://" + domain + "/media/" + media_id + "/subtitles/";
 
-        
+
 
         // Look for </Period> tag to insert before it
         size_t periodEnd = manifestContent.find("</Period>");
@@ -342,7 +353,7 @@ crow::response API::handleManifestRequest(const crow::request& req, const std::s
                 </AdaptationSet>
             )";
             //manifestContent.insert(periodEnd, subtitleAdaptationSet);
-        } 
+        }
 
         crow::response res;
         res.body = manifestContent;
@@ -508,7 +519,7 @@ crow::response API::addProfile(const crow::request& req) {
     int pictureID = x["pictureID"].i();
 
     crow::json::wvalue response;
-    
+
 
     bool success = db.addProfile(userID, profileID, pictureID);
     if (success) {
@@ -542,7 +553,7 @@ crow::response API::deleteProfile(const crow::request& req) {
 
 
     bool success = db.deleteProfile(userID, profileID);
-    
+
 
     if (success) {
         response["status"] = "success";
@@ -563,11 +574,11 @@ crow::response API::listProfiles(const crow::request& req) {
         return crow::response(401, "Invalid authentication");
     }
 
- 
+
 
     crow::json::wvalue response;
 
-  
+
 
     std::vector<std::pair<std::string, std::string>> profiles;
     db.getProfiles(userID, profiles);
@@ -611,7 +622,7 @@ crow::response API::getCoverImage(const crow::request& req, const std::string& i
     }
 
     std::string userID;
-    
+
 
     if (!validateRequest(req, userID)) {
         return crow::response(401, "Invalid authentication");
@@ -653,12 +664,14 @@ crow::response API::getCoverImage(const crow::request& req, const std::string& i
 
 
 std::string API::getPublicIP(const std::string& domain) {
+#ifdef _WIN32
     WSADATA wsaData;
     int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
     if (res != 0) {
         std::cerr << "WSAStartup failed: " << res << std::endl;
         return "";
     }
+#endif
 
     struct addrinfo hints {}, * result = nullptr;
     char ipStr[INET6_ADDRSTRLEN];
@@ -666,10 +679,12 @@ std::string API::getPublicIP(const std::string& domain) {
     hints.ai_family = AF_UNSPEC; // IPv4 or IPv6
     hints.ai_socktype = SOCK_STREAM;
 
-    res = getaddrinfo(domain.c_str(), nullptr, &hints, &result);
+    int res = getaddrinfo(domain.c_str(), nullptr, &hints, &result);
     if (res != 0) {
-        std::cerr << "getaddrinfo failed: " << gai_strerrorA(res) << std::endl;
+        std::cerr << "getaddrinfo failed: " << gai_strerror(res) << std::endl;
+#ifdef _WIN32
         WSACleanup();
+#endif
         return "localhost";
     }
 
@@ -686,11 +701,15 @@ std::string API::getPublicIP(const std::string& domain) {
         }
         inet_ntop(p->ai_family, addr, ipStr, sizeof(ipStr));
         freeaddrinfo(result);
+#ifdef _WIN32
         WSACleanup();
+#endif
         return std::string(ipStr);
     }
 
     freeaddrinfo(result);
+#ifdef _WIN32
     WSACleanup();
+#endif
     return "localhost";
 }

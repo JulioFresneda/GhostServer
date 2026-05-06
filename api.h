@@ -7,7 +7,7 @@
 
 class API {
 public:
-    API(DatabaseHandler& dbHandler, const std::string& coversPath, const std::string& chunksPath, const std::string& domain);
+    API(DatabaseHandler& dbHandler, const std::string& coversPath, const std::string& chunksPath, const std::string& domain, const std::string& domainToken);
     void run(int port);
     std::string getPublicIP(const std::string& domain);
 
@@ -16,6 +16,7 @@ private:
     const std::string& coversPath;
     const std::string chunksPath;
 	const std::string domain;
+    const std::string domainToken;
 
     crow::response downloadMediaData(const crow::request& req);
     crow::response downloadMediaMetadata(const crow::request& req);
